@@ -1,5 +1,6 @@
 import re
 
+from .binary_readiness import is_lfs_pointer_text
 from .collisions import is_binary_sensitive
 
 
@@ -278,6 +279,32 @@ def _extract_hunk_facts(hunk):
     return facts
 
 
+def _recognized_lfs_pointer_lines(hunks):
+    """Return exact pointer lines when one side of the diff is a valid pointer."""
+    added = []
+    removed = []
+    for hunk in hunks:
+        added.extend(entry["text"].strip() for entry in hunk["added"])
+        removed.extend(entry["text"].strip() for entry in hunk["removed"])
+    recognized = set()
+    for lines in (added, removed):
+        if lines and is_lfs_pointer_text("\n".join(lines)):
+            recognized.update(lines)
+    return recognized
+
+
+def _without_lfs_pointer_metadata(facts, recognized):
+    if not recognized:
+        return facts
+    kept = []
+    for fact in facts:
+        text = fact.get("text")
+        if text is not None and text.strip() in recognized:
+            continue
+        kept.append(fact)
+    return kept
+
+
 def extract_change_facts(raw_diff, path_file_types=None):
     path_file_types = path_file_types or {}
     files = []
@@ -291,6 +318,9 @@ def extract_change_facts(raw_diff, path_file_types=None):
         facts = []
         for hunk in parsed["hunks"]:
             facts.extend(_extract_hunk_facts(hunk))
+        facts = _without_lfs_pointer_metadata(
+            facts, _recognized_lfs_pointer_lines(parsed["hunks"])
+        )
         if facts:
             files.append({"path": path, "facts": facts})
     files.sort(key=lambda item: item["path"])

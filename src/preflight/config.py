@@ -142,7 +142,17 @@ def validate_file_types(file_types):
                 raise ConfigError(f"file_types.{file_type}.{key} must be a list of non-empty strings")
 
             for value in values:
-                normalized_value = value.lower() if key != "names" else value
+                if key == "path_prefixes":
+                    normalized_value = canonical_prefix(value).lower()
+                    if not normalized_value:
+                        raise ConfigError(
+                            "File type prefix cannot canonicalize to an empty path: "
+                            f"{value}"
+                        )
+                elif key != "names":
+                    normalized_value = value.lower()
+                else:
+                    normalized_value = value
                 previous_type = seen[key].get(normalized_value)
                 if previous_type is not None and previous_type != file_type:
                     raise ConfigError(

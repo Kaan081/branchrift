@@ -81,6 +81,9 @@ def ensure_git_repository(cwd=None):
         raise GitError("Current directory is not a Git repository")
 
 
+DETACHED_BRANCH_LABEL = "DETACHED"
+
+
 def get_current_branch(cwd=None):
     branch = run_git(
         ["branch", "--show-current"],
@@ -88,7 +91,7 @@ def get_current_branch(cwd=None):
         operation="current_branch",
     ).strip()
     if not branch:
-        raise GitError("Could not determine current branch (detached HEAD is not supported in v0.1)")
+        return DETACHED_BRANCH_LABEL
     return branch
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.9
+
+- Canonicalize file-type path prefixes so equivalent spellings such as `src`, `src/`, and `src\` cannot change classification or specificity; reject prefixes that canonicalize to an empty path.
+- Support detached HEAD checkouts while keeping revision analysis SHA-based and reporting the current branch as `DETACHED`.
+- Extend LFS readiness to LFS-managed paths outside the built-in asset/map types without changing their semantic file type or technical-risk classification.
+- Suppress valid Git LFS pointer transport metadata (`version`, `oid`, `size`) from exact change facts.
+- Bound terminal manual-review output to 20 paths while preserving the complete machine-readable list in JSON.
+- Prevent terminal reports from crashing on limited Windows code pages by safely escaping characters the active stdout encoding cannot represent.
+
 ## 0.1.8
 
 - Report exact change facts from the merge-base diff: conservative scalar `value_changed` pairs, otherwise added or removed lines. Asset, map, and binary diffs are not given internal semantic claims.

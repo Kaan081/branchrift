@@ -193,22 +193,23 @@ def build_binary_readiness_report(
     attr_values=_UNSET,
     lfs_names=_UNSET,
 ):
-    selected = binary_sensitive_changes(changes)
-    if not selected:
+    if not changes:
         return None
-
-    paths = []
-    seen = set()
-    for change in selected:
-        path = change["path"]
-        if path not in seen:
-            seen.add(path)
-            paths.append(path)
 
     if head_is_current_checkout is None:
         head_is_current_checkout = bool(
             analyzed_head_sha and current_head_sha and analyzed_head_sha == current_head_sha
         )
+
+    paths = []
+    seen = set()
+    for change in changes:
+        path = change.get("path")
+        if path and path not in seen:
+            seen.add(path)
+            paths.append(path)
+    if not paths:
+        return None
 
     if attr_values is _UNSET:
         if analyzed_head_sha:
@@ -228,21 +229,28 @@ def build_binary_readiness_report(
 
     porcelain = parse_porcelain_paths(worktree_status)
     worktree_matches_head = bool(head_is_current_checkout)
+    names_for_path = lfs_names if head_is_current_checkout else None
 
     files = []
-    for change in selected:
-        path = change["path"]
+    for change in changes:
+        path = change.get("path")
+        if not path:
+            continue
+        managed = _lfs_managed(attr_values.get(path), names_for_path, path)
+        binary_sensitive = is_binary_sensitive(change.get("file_type")) or is_binary_sensitive(
+            change.get("old_file_type")
+        )
+        if not binary_sensitive and managed is not True:
+            continue
         if head_is_current_checkout:
             inspection = inspect_worktree_file(cwd, path)
             porcelain_xy = porcelain.get(path)
-            names_for_path = lfs_names
         else:
             inspection = {"exists": False, "pointer": False, "readable": False}
             porcelain_xy = None
-            names_for_path = None
         classified = classify_binary_readiness(
             git_status=change.get("git_status"),
-            lfs_managed=_lfs_managed(attr_values.get(path), names_for_path, path),
+            lfs_managed=managed,
             exists=inspection["exists"],
             is_pointer=inspection["pointer"],
             worktree_matches_head=worktree_matches_head,
@@ -261,6 +269,9 @@ def build_binary_readiness_report(
         if classified.get("reason"):
             entry["reason"] = classified["reason"]
         files.append(entry)
+
+    if not files:
+        return None
 
     files.sort(key=lambda item: item["path"])
     return {

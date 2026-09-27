@@ -1,10 +1,59 @@
 import json
+import sys
+from contextlib import contextmanager
 
 from .change_facts import TERMINAL_FACTS_PER_FILE
 from .collisions import is_binary_sensitive
 
 
 MAX_FACT_TEXT = 100
+MANUAL_REVIEW_TERMINAL_LIMIT = 20
+
+
+class _EncodingFallbackStream:
+    """Text wrapper that escapes characters the destination encoding cannot store."""
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, text):
+        return self._stream.write(_text_for_stream(text, self._stream))
+
+    def flush(self):
+        flush = getattr(self._stream, "flush", None)
+        if flush is not None:
+            flush()
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+def _text_for_stream(text, stream):
+    """Keep Unicode when the stream can encode it; otherwise escape the rest."""
+    if not text:
+        return text
+    encoding = getattr(stream, "encoding", None)
+    if not encoding:
+        return text
+    try:
+        text.encode(encoding)
+    except UnicodeEncodeError:
+        return text.encode(encoding, errors="backslashreplace").decode(encoding)
+    return text
+
+
+@contextmanager
+def _terminal_stdout():
+    """Route report printing through the active stdout encoding boundary."""
+    current = sys.stdout
+    if isinstance(current, _EncodingFallbackStream):
+        yield
+        return
+    sys.stdout = _EncodingFallbackStream(current)
+    try:
+        yield
+    finally:
+        sys.stdout = current
 
 
 def terminal_safe(value):
@@ -252,19 +301,26 @@ def _print_verification(report):
         for check in checks:
             print(f"  - {terminal_safe(check)}")
     if review_files:
-        print("  Manual review:")
-        for path in review_files:
+        count = len(review_files)
+        noun = "file" if count == 1 else "files"
+        print(f"  Manual review: {count} {noun}")
+        shown = review_files[:MANUAL_REVIEW_TERMINAL_LIMIT]
+        for path in shown:
             print(f"    - {terminal_safe(path)}")
+        omitted = count - len(shown)
+        if omitted:
+            print(f"    ... {omitted} more paths omitted")
 
 
 def print_report(report):
-    print("=== Repository Preflight ===")
-    _print_analyzed(report)
-    _print_what_changed(report)
-    _print_readiness(report)
-    _print_integration(report)
-    _print_governance(report)
-    _print_verification(report)
+    with _terminal_stdout():
+        print("=== Repository Preflight ===")
+        _print_analyzed(report)
+        _print_what_changed(report)
+        _print_readiness(report)
+        _print_integration(report)
+        _print_governance(report)
+        _print_verification(report)
 
 
 def print_json_report(report):

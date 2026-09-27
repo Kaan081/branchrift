@@ -193,10 +193,11 @@ Change facts are taken from the merge-base unified diff. They are literal diff o
 - A `value_changed` fact is recorded only when one removed line and one added line assign the same key to different scalar values.
 - Other meaningful lines are `line_added` or `line_removed`.
 - Binary diffs, and files classified as `asset` or `map`, do not produce change facts. Repo Preflight does not claim internal changes inside `.uasset` or `.umap` files.
+- A valid Git LFS pointer is transport metadata. When the added or removed lines of a file are themselves a pointer, those `version`, `oid`, and `size` lines are not exact change facts. A normal source line that merely contains those words is kept.
 
 ## Binary and LFS readiness
 
-Asset and map changes get a readiness record:
+Asset and map changes get a readiness record. A changed path that Git LFS manages also gets one when its file type stays `other`. `.wav` is not an asset by default.
 
 - `lfs_managed` comes from `git check-attr` on the analyzed head. When that head is the current checkout, `git lfs ls-files` can confirm it.
 - A hydrated LFS file at the current checkout is `ready`. An LFS pointer left in the worktree needs attention.
@@ -222,6 +223,8 @@ A timeout is a `GitError` that names the operation and the budget. It does not r
 ## UTF-8 Git output
 
 Git stdout and stderr are decoded as UTF-8 on Windows and Linux. Decoding does not follow the Windows ANSI code page, so valid UTF-8 text such as `—` (U+2014) survives. If Git returns no stdout, Repo Preflight raises `GitError` instead of failing later with `AttributeError`. Bytes that are not valid UTF-8 are replaced; that keeps the process alive. Lossless recovery of non-UTF-8 byte filenames is not attempted.
+
+Terminal rendering keeps that Unicode internally. When stdout is UTF-8, printable characters such as `→` stay Unicode. When the active stdout encoding cannot represent a character, that character is escaped at the output boundary, for example `→` as `\u2192`, and the rest of the line is unchanged. JSON keeps `json.dumps` escaping and is not rewritten for the console code page.
 
 ## Collisions
 
@@ -304,11 +307,11 @@ Ownership gaps produce `ATTENTION` until the configured count/ratio threshold is
 
 ## Project status
 
-Current release: **0.1.8**
+Current release: **0.1.9**
 
 The project is intentionally conservative: it reports and prioritizes integration signals instead of automatically merging or blocking changes.
 
-Known scope limits include detached-HEAD handling, one effective owner per path, and richer language/framework-specific semantic analysis.
+Known scope limits include one effective owner per path and richer language/framework-specific semantic analysis. A detached checkout is analyzed from the requested revisions and labeled `DETACHED`.
 
 ## Contributing
 
