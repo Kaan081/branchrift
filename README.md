@@ -186,6 +186,43 @@ preflight --base main --json
 
 If JSON is redirected into a file inside the inspected repository, the shell creates that file before Repo Preflight starts, so the working tree can correctly appear as `DIRTY`. Redirect outside the repository if you want an unchanged worktree state.
 
+## Exact change facts
+
+Change facts are taken from the merge-base unified diff. They are literal diff observations, not an interpretation of what the change means.
+
+- A `value_changed` fact is recorded only when one removed line and one added line assign the same key to different scalar values.
+- Other meaningful lines are `line_added` or `line_removed`.
+- Binary diffs, and files classified as `asset` or `map`, do not produce change facts. Repo Preflight does not claim internal changes inside `.uasset` or `.umap` files.
+
+## Binary and LFS readiness
+
+Asset and map changes get a readiness record:
+
+- `lfs_managed` comes from `git check-attr` on the analyzed head. When that head is the current checkout, `git lfs ls-files` can confirm it.
+- A hydrated LFS file at the current checkout is `ready`. An LFS pointer left in the worktree needs attention.
+- When `--head` is not the current checkout, working-tree hydration is not consulted. Readiness is `unknown`, LFS state is `unknown`, and the reason is `analyzed_head_not_current_checkout`.
+- If `git lfs` is not installed, LFS name lookup becomes unknown. Source-only analysis still completes.
+
+## Revision provenance
+
+Each report records the requested base and head, their resolved SHAs, the merge-base, the comparison `merge-base...head`, and whether the analyzed head is the commit currently checked out.
+
+## Git command timeouts
+
+Git commands use a budget by operation class:
+
+| Class | Budget | Examples |
+| --- | ---: | --- |
+| fast | 15s | revision lookup, current branch, merge-base |
+| normal | 30s | name-status, worktree status, check-attr |
+| expensive | 90s | unified diff, collision scan, `git lfs ls-files` |
+
+A timeout is a `GitError` that names the operation and the budget. It does not return a partial report.
+
+## UTF-8 Git output
+
+Git stdout and stderr are decoded as UTF-8 on Windows and Linux. Decoding does not follow the Windows ANSI code page, so valid UTF-8 text such as `—` (U+2014) survives. If Git returns no stdout, Repo Preflight raises `GitError` instead of failing later with `AttributeError`. Bytes that are not valid UTF-8 are replaced; that keeps the process alive. Lossless recovery of non-UTF-8 byte filenames is not attempted.
+
 ## Collisions
 
 A **collision** means the same repository path changed on both sides since the merge-base of `--base` and `--head`. It does **not** guarantee a textual Git merge conflict.
@@ -267,7 +304,7 @@ Ownership gaps produce `ATTENTION` until the configured count/ratio threshold is
 
 ## Project status
 
-Current release: **0.1.7**
+Current release: **0.1.8**
 
 The project is intentionally conservative: it reports and prioritizes integration signals instead of automatically merging or blocking changes.
 

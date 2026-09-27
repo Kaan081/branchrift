@@ -8,3 +8,7 @@ class ConfigError(PreflightError):
 
 class GitError(PreflightError):
     """Raised when Git state or Git commands cannot be inspected safely."""
+
+
+class GitTimeoutError(GitError):
+    """Raised when a Git subprocess exceeds its operation timeout."""

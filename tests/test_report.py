@@ -126,3 +126,25 @@ def test_build_report_includes_optional_collisions():
 def test_build_report_omits_collisions_when_not_provided():
     report = build_report("feature/x", "main", [], GOVERNANCE, False)
     assert "collisions" not in report
+
+
+def test_build_report_includes_optional_provenance():
+    provenance = {
+        "base": {"requested": "dev", "sha": "a" * 40},
+        "head": {"requested": "HEAD", "sha": "b" * 40},
+        "merge_base_sha": "a" * 40,
+        "comparison": "merge-base...head",
+        "head_is_current_checkout": True,
+    }
+    report = build_report(
+        "feature/x",
+        "dev",
+        [],
+        GOVERNANCE,
+        False,
+        revision_provenance=provenance,
+    )
+    assert report["revision_provenance"] == provenance
+    assert report["base"] == "dev"
+    assert report["head"] == "HEAD"
+    assert report["technical_risk"] == "LOW"

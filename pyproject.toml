@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repo-preflight"
-version = "0.1.7"
+version = "0.1.8"
 description = "Read-only Git integration preflight and repository governance CLI"
 readme = "README.md"
 requires-python = ">=3.10"

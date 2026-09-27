@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8
+
+- Report exact change facts from the merge-base diff: conservative scalar `value_changed` pairs, otherwise added or removed lines. Asset, map, and binary diffs are not given internal semantic claims.
+- Report binary/LFS readiness for asset and map changes. Attributes come from the analyzed head. A historical head does not inherit the current checkout's hydration; readiness stays `unknown` with reason `analyzed_head_not_current_checkout`.
+- Report revision provenance: requested refs, resolved SHAs, comparison mode, and whether the analyzed head is the current checkout.
+- Use operation-aware Git timeouts: 15s fast, 30s normal, and 90s for unified diff, collision scan, and `git lfs ls-files`. A missing Git LFS command degrades to unknown LFS names and does not fail source-only analysis.
+- Decode Git command output as UTF-8 on every platform, including Windows, so valid UTF-8 such as U+2014 is not decoded through the ANSI code page. Missing stdout becomes a `GitError`. Invalid bytes are replaced instead of crashing. Git-quoted Unicode paths in unified diffs are decoded back to the repository path.
+- Add Windows CI for Python 3.10 and 3.13, and a wheel-install smoke job that does not use an editable install.
+
 ## 0.1.7
 
 - Detect same-path branch collisions: repository paths changed on both `--base` and `--head` since their merge-base.

@@ -16,5 +16,58 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Git version
+        run: git --version
       - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q
+
+  pytest-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Git version
+        run: git --version
+      - name: Git LFS version
+        shell: bash
+        run: git lfs version || echo "git lfs unavailable"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  wheel-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Git and LFS versions
+        shell: bash
+        run: |
+          git --version
+          git lfs version || echo "git lfs unavailable"
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Install wheel into a clean environment
+        shell: bash
+        run: |
+          unset PYTHONPATH
+          python -m venv "$RUNNER_TEMP/preflight-venv"
+          "$RUNNER_TEMP/preflight-venv/Scripts/python.exe" -m pip install dist/*.whl
+          "$RUNNER_TEMP/preflight-venv/Scripts/python.exe" -c "import preflight, pathlib, sys; path = pathlib.Path(preflight.__file__).resolve(); src = pathlib.Path('src').resolve(); print(preflight.__version__); print(path); sys.exit(src in path.parents)"
+      - name: Smoke-test the installed CLI
+        shell: bash
+        run: |
+          unset PYTHONPATH
+          export PATH="$RUNNER_TEMP/preflight-venv/Scripts:$PATH"
+          hash -r
+          preflight --help
+          python scripts/ci_wheel_smoke.py

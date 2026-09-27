@@ -90,6 +90,33 @@ def calculate_governance_status(changes, governance):
     return "ATTENTION"
 
 
+COMPARISON_MERGE_BASE_HEAD = "merge-base...head"
+
+
+def build_revision_provenance(
+    requested_base,
+    requested_head,
+    topology,
+    current_head_sha=None,
+):
+    head_sha = topology["head_sha"]
+    return {
+        "base": {
+            "requested": requested_base,
+            "sha": topology["base_sha"],
+        },
+        "head": {
+            "requested": requested_head,
+            "sha": head_sha,
+        },
+        "merge_base_sha": topology["merge_base"],
+        "comparison": COMPARISON_MERGE_BASE_HEAD,
+        "head_is_current_checkout": bool(
+            current_head_sha and current_head_sha == head_sha
+        ),
+    }
+
+
 def build_report(
     branch,
     base_branch,
@@ -99,6 +126,9 @@ def build_report(
     head_revision="HEAD",
     topology=None,
     collisions=None,
+    change_facts=None,
+    binary_readiness=None,
+    revision_provenance=None,
 ):
     summary = build_summary(changes)
     report = {
@@ -115,4 +145,10 @@ def build_report(
         report["topology"] = topology
     if collisions is not None:
         report["collisions"] = collisions
+    if change_facts is not None:
+        report["change_facts"] = change_facts
+    if binary_readiness is not None:
+        report["binary_readiness"] = binary_readiness
+    if revision_provenance is not None:
+        report["revision_provenance"] = revision_provenance
     return report

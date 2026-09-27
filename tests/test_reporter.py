@@ -51,14 +51,15 @@ def _report_with_topology(ff_eligible=True):
 def test_print_report_includes_topology_section(capsys):
     print_report(_report_with_topology())
     output = capsys.readouterr().out
-    assert "Topology:" in output
-    assert f"Base SHA: {'a' * 40}" in output
-    assert f"Head SHA: {'b' * 40}" in output
-    assert f"Merge base: {'a' * 40}" in output
-    assert "Behind: 0" in output
+    assert "Analyzed:" in output
+    assert f"{'a' * 40}" in output
+    assert f"{'b' * 40}" in output
+    assert "Merge base:" in output
+    assert "Integration:" in output
+    assert "Topology: LINEAR" in output
+    assert "Fast-forward eligible: yes" in output
     assert "Ahead: 3" in output
-    assert "Relationship: LINEAR" in output
-    assert "FF eligible: YES" in output
+    assert "Behind: 0" in output
 
 
 def test_print_json_report_uses_boolean_ff_eligible(capsys):
@@ -83,11 +84,10 @@ def _report_with_collisions(files):
 def test_print_report_zero_collisions(capsys):
     print_report(_report_with_collisions([]))
     output = capsys.readouterr().out
-    assert "Collisions:" in output
-    assert "Count: 0" in output
-    assert "Binary-sensitive: 0" in output
-    collisions_block = output.split("Collisions:", 1)[1].split("Technical risk:", 1)[0]
-    assert "- None" in collisions_block
+    assert "Integration:" in output
+    assert "Same-path collisions: 0" in output
+    assert "Binary-sensitive collisions: 0" in output
+    assert "BINARY-SENSITIVE" not in output
 
 
 def test_print_report_nonzero_collisions(capsys):
@@ -108,8 +108,8 @@ def test_print_report_nonzero_collisions(capsys):
         )
     )
     output = capsys.readouterr().out
-    assert "Collisions:" in output
-    assert "Count: 2" in output
-    assert "Binary-sensitive: 1" in output
-    assert "- Content/Maps/Test.umap [map, BINARY-SENSITIVE]" in output
-    assert "- src/app.py [source]" in output
+    assert "Integration:" in output
+    assert "Same-path collisions: 2" in output
+    assert "Binary-sensitive collisions: 1" in output
+    assert "Content/Maps/Test.umap [map, BINARY-SENSITIVE]" in output
+    assert "src/app.py [source]" in output

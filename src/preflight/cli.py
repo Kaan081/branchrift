@@ -2,6 +2,8 @@ import argparse
 import sys
 
 from .analyzer import analyze_change
+from .binary_readiness import build_binary_readiness_report
+from .change_facts import build_change_facts_report, file_types_for_change_facts
 from .collisions import build_collision_report
 from .config import load_config
 from .errors import ConfigError, GitError, PreflightError
@@ -12,11 +14,13 @@ from .git import (
     get_current_branch,
     get_diff_name_status,
     get_git_topology,
-    is_worktree_dirty,
+    get_unified_diff,
+    get_worktree_status,
     parse_git_diff,
+    resolve_commit_sha,
 )
 from .pipeline import build_change_context
-from .report import build_report
+from .report import build_report, build_revision_provenance
 from .reporter import print_json_report, print_report
 
 
@@ -43,7 +47,8 @@ def run(argv=None, cwd=None):
     ensure_revision_exists(args.base, cwd=cwd)
     ensure_revision_exists(args.head, cwd=cwd)
     branch = get_current_branch(cwd=cwd)
-    dirty = is_worktree_dirty(cwd=cwd)
+    worktree_status = get_worktree_status(cwd=cwd)
+    dirty = bool(worktree_status.strip())
     topology = get_git_topology(args.base, args.head, cwd=cwd)
     collisions = build_collision_report(
         get_collision_paths(topology, cwd=cwd),
@@ -51,13 +56,35 @@ def run(argv=None, cwd=None):
     )
 
     raw_changes = parse_git_diff(
-        get_diff_name_status(args.base, head_revision=args.head, cwd=cwd)
+        get_diff_name_status(topology["base_sha"], topology["head_sha"], cwd=cwd)
     )
     analyzed_changes = []
 
     for raw_change in raw_changes:
         context = build_change_context(raw_change, config)
         analyzed_changes.append(analyze_change(context))
+
+    change_facts = build_change_facts_report(
+        get_unified_diff(topology["base_sha"], topology["head_sha"], cwd=cwd),
+        file_types_for_change_facts(analyzed_changes),
+    )
+    current_head_sha = topology["head_sha"]
+    if args.head != "HEAD":
+        current_head_sha = resolve_commit_sha("HEAD", cwd=cwd)
+    revision_provenance = build_revision_provenance(
+        args.base,
+        args.head,
+        topology,
+        current_head_sha=current_head_sha,
+    )
+    binary_readiness = build_binary_readiness_report(
+        analyzed_changes,
+        cwd=cwd,
+        worktree_status=worktree_status,
+        analyzed_head_sha=topology["head_sha"],
+        current_head_sha=current_head_sha,
+        head_is_current_checkout=revision_provenance["head_is_current_checkout"],
+    )
 
     report = build_report(
         branch,
@@ -68,6 +95,9 @@ def run(argv=None, cwd=None):
         head_revision=args.head,
         topology=topology,
         collisions=collisions,
+        change_facts=change_facts,
+        binary_readiness=binary_readiness,
+        revision_provenance=revision_provenance,
     )
 
     if args.json:
