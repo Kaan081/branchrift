@@ -116,8 +116,8 @@ def test_cp1254_terminal_escapes_unsupported_characters_and_keeps_turkish():
     assert UNSUPPORTED not in output
     assert r"\u2192" in output
     assert r"\u0100" in output
-    assert f"count {r'\u2192'} value {r'\u0100'} {TURKISH}" in output
-    assert f"notlar/{TURKISH}/{r'\u2192'}.md" in output
+    assert "count \\u2192 value \\u0100 " + TURKISH in output
+    assert "notlar/" + TURKISH + r"/\u2192.md" in output
     assert message.replace(ARROW, r"\u2192") in output
     assert reason.replace(ARROW, r"\u2192") in output
     assert _render(lambda: print_report(report), "cp1254") == output
