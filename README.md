@@ -1,5 +1,9 @@
 # BranchRift
 
+
+https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7
+
+
 See integration risk before branches come back together.
 
 **See branch divergence, same-path collisions, ownership gaps, and Git LFS readiness before integration — without modifying your repository.**
