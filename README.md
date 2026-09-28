@@ -24,6 +24,15 @@ Repo Preflight is intentionally advisory.
 
 It does **not** merge, checkout, pull, commit, delete, modify, or automatically approve repository changes.
 
+## Demo
+
+> Illustrative scenario based on verified Repo Preflight v0.1.9 behavior and output format.
+
+<img width="960" height="540" alt="repo_preflight_v019_demo_preview" src="https://github.com/user-attachments/assets/3aa4ed11-b34e-42cd-aeda-bb4573a0b164" />
+
+
+The demo shows a reproducible integration scenario with branch divergence, a same-path binary-sensitive Unreal map collision, Git LFS readiness, and required verification — without modifying the repository.
+
 ---
 
 ## Why this exists
