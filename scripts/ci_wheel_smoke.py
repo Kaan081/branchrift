@@ -1,4 +1,4 @@
-"""Smoke-test an already installed Repo Preflight wheel.
+"""Smoke-test an already installed BranchRift wheel.
 
 The caller must put the clean environment's executables on PATH and must not
 set PYTHONPATH to the repository source tree.
@@ -33,13 +33,17 @@ def main():
     if repo_src in package_file.parents:
         raise SystemExit(f"preflight imported from the source tree: {package_file}")
 
-    executable = shutil.which("preflight")
+    executable = shutil.which("branchrift")
+    legacy = shutil.which("preflight")
     if not executable:
+        raise SystemExit("branchrift executable was not found on PATH")
+    if not legacy:
         raise SystemExit("preflight executable was not found on PATH")
 
     print(f"version={preflight.__version__}")
     print(f"package={package_file}")
     print(f"executable={executable}")
+    print(f"legacy={legacy}")
 
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)

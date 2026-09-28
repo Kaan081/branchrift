@@ -1,10 +1,10 @@
-# Contributing to Repo Preflight
+# Contributing to BranchRift
 
 Thanks for considering a contribution.
 
 ## Principles
 
-Repo Preflight aims to stay:
+BranchRift aims to stay:
 
 - read-only by default
 - fail-fast on invalid internal/config contracts

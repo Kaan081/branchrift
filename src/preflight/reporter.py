@@ -314,7 +314,7 @@ def _print_verification(report):
 
 def print_report(report):
     with _terminal_stdout():
-        print("=== Repository Preflight ===")
+        print("=== BranchRift ===")
         _print_analyzed(report)
         _print_what_changed(report)
         _print_readiness(report)

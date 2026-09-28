@@ -1,6 +1,6 @@
 """v0.1.9 evidence: real Git rename and copy interpretation.
 
-These tests follow the commands Repo Preflight already runs. They do not
+These tests follow the commands BranchRift already runs. They do not
 force a copy status that those commands do not request.
 """
 

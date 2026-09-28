@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Renamed the public product from Repo Preflight to BranchRift.
+- Distribution package is now `branchrift`.
+- Added `branchrift` as the primary CLI command.
+- Retained `preflight` as a compatibility CLI alias. This release does not print a runtime deprecation warning.
+- Internal Python package remains `preflight` (`import preflight`). The config filename remains `.preflight.json`.
+- No intentional analysis, risk, governance, collision, or Git LFS semantic changes in this release.
+
 ## 0.1.9
 
 - Canonicalize file-type path prefixes so equivalent spellings such as `src`, `src/`, and `src\` cannot change classification or specificity; reject prefixes that canonicalize to an empty path.

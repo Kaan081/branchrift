@@ -1,13 +1,24 @@
-# Repo Preflight
+# BranchRift
 
-[![PyPI](https://img.shields.io/pypi/v/repo-preflight.svg)](https://pypi.org/project/repo-preflight/)
-[![Python](https://img.shields.io/pypi/pyversions/repo-preflight.svg)](https://pypi.org/project/repo-preflight/)
-[![Tests](https://github.com/Kaan081/repo-preflight/actions/workflows/tests.yml/badge.svg)](https://github.com/Kaan081/repo-preflight/actions/workflows/tests.yml)
-[![License](https://img.shields.io/github/license/Kaan081/repo-preflight.svg)](LICENSE)
+See integration risk before branches come back together.
 
 **See branch divergence, same-path collisions, ownership gaps, and Git LFS readiness before integration — without modifying your repository.**
 
-Repo Preflight is a read-only Git CLI for developers and small teams that want a repeatable integration check before merging, promoting, or reviewing a branch.
+BranchRift is a read-only Git CLI that surfaces branch divergence, same-path collisions, ownership gaps, binary-sensitive changes, and Git LFS readiness before integration. It is for developers and small teams that want a repeatable integration check before merging, promoting, or reviewing a branch.
+
+Two branches touched the same `.umap`. Know before you integrate.
+
+Source, configuration, assets, and other Git changes share the same report. Paths classified as `asset` or `map`, including `.uasset` and `.umap`, are treated as binary-sensitive and checked for Git LFS readiness. BranchRift does not inspect the contents of those files, does not predict merge conflicts, and does not modify the repository.
+
+[![PyPI](https://img.shields.io/pypi/v/branchrift.svg)](https://pypi.org/project/branchrift/)
+[![Python](https://img.shields.io/pypi/pyversions/branchrift.svg)](https://pypi.org/project/branchrift/)
+[![Tests](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml)
+[![License](https://img.shields.io/github/license/Kaan081/branchrift.svg)](LICENSE)
+
+BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available in v0.2.0 for compatibility.
+
+Repository: <https://github.com/Kaan081/branchrift>
+Issues: <https://github.com/Kaan081/branchrift/issues>
 
 It answers questions such as:
 
@@ -20,18 +31,9 @@ It answers questions such as:
 - Which changed files deserve manual review?
 - Which verification steps should happen before integration?
 
-Repo Preflight is intentionally advisory.
+BranchRift is intentionally advisory.
 
 It does **not** merge, checkout, pull, commit, delete, modify, or automatically approve repository changes.
-
-## Demo
-
-> Illustrative scenario based on verified Repo Preflight v0.1.9 behavior and output format.
-
-<img width="960" height="540" alt="repo_preflight_v019_demo_preview" src="https://github.com/user-attachments/assets/3aa4ed11-b34e-42cd-aeda-bb4573a0b164" />
-
-
-The demo shows a reproducible integration scenario with branch divergence, a same-path binary-sensitive Unreal map collision, Git LFS readiness, and required verification — without modifying the repository.
 
 ---
 
@@ -43,7 +45,7 @@ Before integration, teams often need a different view:
 
 > **What could make this branch expensive or risky to integrate?**
 
-Repo Preflight combines several signals that are normally inspected separately:
+BranchRift combines several signals that are normally inspected separately:
 
 - Git topology;
 - same-path changes on both sides of a branch;
@@ -59,7 +61,7 @@ For Unreal Engine teams using Git and Git LFS, one especially useful case is sim
 
 > **Two branches touched the same `.umap`. Know before you integrate.**
 
-Repo Preflight does not replace Git, Git LFS, file locking, code review, CI, or your source-control workflow.
+BranchRift does not replace Git, Git LFS, file locking, code review, CI, or your source-control workflow.
 
 It adds a read-only pre-integration view on top of them.
 
@@ -70,13 +72,13 @@ It adds a read-only pre-integration view on top of them.
 Install with `pipx`:
 
 ```bash
-pipx install repo-preflight
+pipx install branchrift
 ```
 
 Or with `pip`:
 
 ```bash
-pip install repo-preflight
+pip install branchrift
 ```
 
 Create `.preflight.json` in the repository root:
@@ -101,30 +103,32 @@ Create `.preflight.json` in the repository root:
 Then run:
 
 ```bash
-preflight --base main
+branchrift --base main
 ```
 
 Or inspect another fetched branch without checking it out:
 
 ```bash
-preflight --base main --head origin/feature/environment-pass
+branchrift --base main --head origin/feature/environment-pass
 ```
+
+The legacy `preflight` command remains available in v0.2.0 for compatibility.
 
 ---
 
 ## Example: catch integration risk before merge
 
-A report can surface a divergent branch, a same-path Unreal map collision, and LFS readiness in one run:
+A report can surface a divergent branch, a same-path Unreal map collision, and LFS readiness in one run. The block below is an illustration of the current terminal report shape. The revisions and paths are examples, not a recorded run.
 
 ```text
-=== Repository Preflight ===
+=== BranchRift ===
 Analyzed:
   Base: main
         0123456789abcdef0123456789abcdef01234567
   Head: HEAD
         fedcba9876543210fedcba9876543210fedcba98
   Merge base: abcdefabcdefabcdefabcdefabcdefabcdefabcd
-  Comparison: abcdefabcdefabcdefabcdefabcdefabcdefabcd...fedcba9876543210fedcba9876543210fedcba98
+  Comparison: merge-base...head
   Head is current checkout: yes
   Current branch: feature/environment-pass
   Repository state: CLEAN
@@ -135,8 +139,8 @@ What changed:
   High risk: 0
   Medium risk: 14
   Low risk: 0
-  Git status mix: M=2, A=12
-  File types: source=1, asset=12, map=1
+  Git status mix: A=12, M=2
+  File types: asset=12, map=1, source=1
   Owners: Code=1, Content=13
 
   Source/config:
@@ -165,8 +169,8 @@ Governance:
   PASS
 
 Required verification:
-  - map integration verification
   - build verification
+  - map integration verification
   Manual review: 2 files
     - Content/Maps/L_Main.umap
     - Source/Game/Inventory.cpp
@@ -174,15 +178,15 @@ Required verification:
 
 A **collision** means the same repository path changed on both sides since the merge-base.
 
-It does **not** mean Repo Preflight is claiming that Git will definitely produce a textual merge conflict.
+It does **not** mean BranchRift is claiming that Git will definitely produce a textual merge conflict.
 
-For binary files such as `.uasset` and `.umap`, Repo Preflight marks the overlap as **BINARY-SENSITIVE** instead of pretending it can inspect their internal semantics.
+For binary files such as `.uasset` and `.umap`, BranchRift marks the overlap as **BINARY-SENSITIVE** instead of pretending it can inspect their internal semantics.
 
 ---
 
-## What Repo Preflight reports
+## What BranchRift reports
 
-Repo Preflight currently reports:
+BranchRift currently reports:
 
 - requested base and head revisions;
 - resolved commit SHAs;
@@ -210,7 +214,7 @@ Repo Preflight currently reports:
 
 ## Design principles
 
-Repo Preflight is deliberately:
+BranchRift is deliberately:
 
 - **read-only** — it never mutates the repository;
 - **conservative** — it does not invent semantics it cannot prove;
@@ -241,20 +245,22 @@ When Git LFS is unavailable, source-only analysis can still complete, while LFS-
 Recommended isolated CLI installation:
 
 ```bash
-pipx install repo-preflight
+pipx install branchrift
 ```
 
 Standard Python installation:
 
 ```bash
-pip install repo-preflight
+pip install branchrift
 ```
 
 Verify:
 
 ```bash
-preflight --help
+branchrift --help
 ```
+
+The legacy `preflight` command remains available in v0.2.0 for compatibility.
 
 ---
 
@@ -263,8 +269,8 @@ preflight --help
 Clone the repository:
 
 ```bash
-git clone https://github.com/Kaan081/repo-preflight.git
-cd repo-preflight
+git clone https://github.com/Kaan081/branchrift.git
+cd branchrift
 ```
 
 Install in editable mode:
@@ -289,7 +295,7 @@ python -m pytest -q
 
 ## Configuration
 
-Repo Preflight reads repository policy from `.preflight.json` by default.
+BranchRift reads repository policy from `.preflight.json` by default.
 
 A minimal configuration requires ownership rules:
 
@@ -317,7 +323,7 @@ Governance thresholds and default file-type rules are provided automatically unl
 You can also use a config file elsewhere:
 
 ```bash
-preflight --base main --config /path/to/preflight.json
+branchrift --base main --config /path/to/preflight.json
 ```
 
 ---
@@ -391,47 +397,47 @@ An unmatched path becomes `Unknown`.
 
 Analysis continues, but the path is reported as an ownership governance gap.
 
-> Repo Preflight currently resolves one effective owner per path. Multiple simultaneous co-owners are not modeled.
+> BranchRift currently resolves one effective owner per path. Multiple simultaneous co-owners are not modeled.
 
 ---
 
-## Running Repo Preflight
+## Running BranchRift
+
+Compare the current checked-out revision against `main`:
+
+```bash
+branchrift --base main
+```
 
 Compare the current checked-out revision against `dev`:
 
 ```bash
-preflight --base dev
-```
-
-Compare against `main`:
-
-```bash
-preflight --base main
+branchrift --base dev
 ```
 
 Analyze another fetched branch without checking it out:
 
 ```bash
-preflight --base main --head origin/feature/my-change
+branchrift --base main --head origin/feature/my-change
 ```
 
 Use an explicit configuration file:
 
 ```bash
-preflight --base main --config /path/to/preflight.json
+branchrift --base main --config /path/to/preflight.json
 ```
 
 Produce machine-readable JSON:
 
 ```bash
-preflight --base main --json
+branchrift --base main --json
 ```
 
 ---
 
 ## Revision topology
 
-Repo Preflight resolves both revisions to commit SHAs and reports their relationship.
+BranchRift resolves both revisions to commit SHAs and reports their relationship.
 
 Possible topology relationships include:
 
@@ -459,7 +465,7 @@ Integration:
 
 This is advisory information.
 
-Repo Preflight does not automatically merge or block the branch.
+BranchRift does not automatically merge or block the branch.
 
 ---
 
@@ -503,7 +509,7 @@ For Unreal projects this includes:
 - `.uasset`
 - `.umap`
 
-Repo Preflight does not claim to inspect semantic changes inside these files.
+BranchRift does not claim to inspect semantic changes inside these files.
 
 ### Rename behavior
 
@@ -515,7 +521,7 @@ It does not currently model rename identity when calculating same-path collision
 
 ## Exact change facts
 
-Repo Preflight can extract conservative facts from text diffs.
+BranchRift can extract conservative facts from text diffs.
 
 These facts are literal observations from the merge-base unified diff.
 
@@ -534,13 +540,13 @@ For example:
 max_players: 4 -> 8
 ```
 
-Repo Preflight intentionally avoids pretending to understand what that change means to the application.
+BranchRift intentionally avoids pretending to understand what that change means to the application.
 
 ### Binary files
 
 Binary diffs and files classified as `asset` or `map` do not produce internal change facts.
 
-Repo Preflight does not claim to inspect internal Unreal asset/map contents.
+BranchRift does not claim to inspect internal Unreal asset/map contents.
 
 ### Git LFS pointer metadata
 
@@ -586,7 +592,7 @@ Possible states can include:
 
 ### Current checkout
 
-When the analyzed revision is the current checkout, Repo Preflight can use working-tree state and Git LFS information to determine readiness.
+When the analyzed revision is the current checkout, BranchRift can use working-tree state and Git LFS information to determine readiness.
 
 A hydrated LFS file can be reported as ready.
 
@@ -594,7 +600,7 @@ A pointer left in the working tree can require attention.
 
 ### Historical or non-current revisions
 
-When `--head` is not the currently checked-out commit, Repo Preflight does not incorrectly apply current working-tree hydration state to that historical revision.
+When `--head` is not the currently checked-out commit, BranchRift does not incorrectly apply current working-tree hydration state to that historical revision.
 
 Instead, readiness can become:
 
@@ -616,7 +622,7 @@ The tool prefers explicit uncertainty over a misleading conclusion.
 
 ## Detached HEAD support
 
-Repo Preflight supports SHA-based analysis from detached HEAD checkouts.
+BranchRift supports SHA-based analysis from detached HEAD checkouts.
 
 A detached checkout is reported as:
 
@@ -653,7 +659,7 @@ Analyzed:
   Head: origin/feature/test
         fedcba9876543210fedcba9876543210fedcba98
   Merge base: abcdefabcdefabcdefabcdefabcdefabcdefabcd
-  Comparison: abcdefabcdefabcdefabcdefabcdefabcdefabcd...fedcba9876543210fedcba9876543210fedcba98
+  Comparison: merge-base...head
   Head is current checkout: no
 ```
 
@@ -663,7 +669,7 @@ This makes the report auditable and avoids ambiguity about which repository stat
 
 ## Dirty working tree
 
-Repo Preflight reports whether the current worktree is clean or dirty.
+BranchRift reports whether the current worktree is clean or dirty.
 
 Example:
 
@@ -683,16 +689,16 @@ A dirty worktree is reported as context rather than silently mixed into the comp
 JSON output is available with:
 
 ```bash
-preflight --base main --json
+branchrift --base main --json
 ```
 
 If shell redirection creates the output file **inside the repository**:
 
 ```bash
-preflight --base main --json > report.json
+branchrift --base main --json > report.json
 ```
 
-the shell creates `report.json` before Repo Preflight begins.
+the shell creates `report.json` before BranchRift begins.
 
 The repository may therefore correctly appear as `DIRTY`.
 
@@ -712,7 +718,7 @@ Git operations have timeout budgets based on expected cost.
 
 A timeout becomes a `GitError`.
 
-Repo Preflight does not silently return a partial report after a Git timeout.
+BranchRift does not silently return a partial report after a Git timeout.
 
 ---
 
@@ -733,7 +739,7 @@ Valid Unicode text such as:
 
 is preserved internally.
 
-If the active terminal encoding cannot represent a character, Repo Preflight escapes that character deterministically at the output boundary instead of crashing.
+If the active terminal encoding cannot represent a character, BranchRift escapes that character deterministically at the output boundary instead of crashing.
 
 For example:
 
@@ -846,7 +852,7 @@ Custom `file_types` rules replace the defaults.
 
 ## Governance
 
-Repo Preflight separates technical risk from governance state.
+BranchRift separates technical risk from governance state.
 
 Default governance configuration:
 
@@ -870,7 +876,7 @@ A confirmed ownership-boundary crossing is treated as critical governance inform
 
 Governance status does not automatically block the repository.
 
-Repo Preflight remains advisory.
+BranchRift remains advisory.
 
 ---
 
@@ -899,7 +905,7 @@ The goal is to make the required human or automated verification explicit.
 | `0` | Analysis completed successfully |
 | `2` | Configuration error |
 | `3` | Git/repository/revision error |
-| `4` | Known Repo Preflight domain error |
+| `4` | Known BranchRift domain error |
 
 A completed analysis still returns `0` when it discovers:
 
@@ -909,13 +915,13 @@ A completed analysis still returns `0` when it discovers:
 - a dirty worktree;
 - required manual review.
 
-Repo Preflight is advisory in the current release.
+BranchRift is advisory in the current release.
 
 ---
 
 ## Security model
 
-Repo Preflight is intentionally read-only.
+BranchRift is intentionally read-only.
 
 The CLI:
 
@@ -948,7 +954,7 @@ See [`SECURITY.md`](SECURITY.md) for vulnerability reporting guidance.
 Use:
 
 ```bash
-preflight --base main --json
+branchrift --base main --json
 ```
 
 JSON output contains the full structured report, including data that may be truncated in terminal presentation.
@@ -961,13 +967,13 @@ It is intended for:
 - downstream tooling;
 - automated inspection.
 
-Repo Preflight does not currently turn risk/governance findings into blocking exit codes.
+BranchRift does not currently turn risk/governance findings into blocking exit codes.
 
 ---
 
 ## Validation
 
-Repo Preflight v0.1.9 has been tested across:
+v0.1.9, released as Repo Preflight, was tested across:
 
 - Python 3.10;
 - Python 3.11;
@@ -996,7 +1002,7 @@ These checks are validation evidence, not a performance SLA.
 
 ## Current scope and limitations
 
-Repo Preflight is intentionally narrow.
+BranchRift is intentionally narrow.
 
 It currently does **not** provide:
 
@@ -1017,13 +1023,9 @@ The project prefers conservative facts over unsupported conclusions.
 
 ## Project status
 
-Current release:
+Current release: **0.2.0**
 
-```text
-0.1.9
-```
-
-Repo Preflight is an early-stage developer tool.
+BranchRift is an early-stage developer tool.
 
 The current focus is:
 
@@ -1041,7 +1043,7 @@ Feedback backed by a real repository or workflow problem is especially useful.
 
 ## Feedback
 
-If you test Repo Preflight on a real repository, useful feedback includes:
+If you test BranchRift on a real repository, useful feedback includes:
 
 1. Were same-path collisions useful or noisy?
 2. Were binary-sensitive warnings actionable?
@@ -1061,7 +1063,7 @@ Please do not publish:
 
 Security-sensitive reports should follow [`SECURITY.md`](SECURITY.md).
 
-General feedback can be opened through [GitHub Issues](https://github.com/Kaan081/repo-preflight/issues).
+General feedback can be opened through [GitHub Issues](https://github.com/Kaan081/branchrift/issues).
 
 ---
 
@@ -1077,6 +1079,6 @@ Ideas backed by a real repository or workflow problem are preferred over specula
 
 ## License
 
-Repo Preflight is released under the MIT License.
+BranchRift is released under the MIT License.
 
 See [`LICENSE`](LICENSE).

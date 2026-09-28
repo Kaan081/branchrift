@@ -31,5 +31,19 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Confirm branchrift distribution
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          wheels = sorted(Path("dist").glob("branchrift-*.whl"))
+          sdists = sorted(Path("dist").glob("branchrift-*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit(
+                  f"expected one branchrift wheel and sdist, found {wheels} {sdists}"
+              )
+          print(wheels[0])
+          print(sdists[0])
+          PY
+
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1

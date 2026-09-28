@@ -60,8 +60,15 @@ jobs:
         shell: bash
         run: |
           unset PYTHONPATH
+          python - <<'PY'
+          from pathlib import Path
+          wheels = sorted(Path("dist").glob("branchrift-*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected one branchrift wheel, found {wheels}")
+          print(wheels[0])
+          PY
           python -m venv "$RUNNER_TEMP/preflight-venv"
-          "$RUNNER_TEMP/preflight-venv/Scripts/python.exe" -m pip install dist/*.whl
+          "$RUNNER_TEMP/preflight-venv/Scripts/python.exe" -m pip install dist/branchrift-*.whl
           "$RUNNER_TEMP/preflight-venv/Scripts/python.exe" -c "import preflight, pathlib, sys; path = pathlib.Path(preflight.__file__).resolve(); src = pathlib.Path('src').resolve(); print(preflight.__version__); print(path); sys.exit(src in path.parents)"
       - name: Smoke-test the installed CLI
         shell: bash
@@ -69,5 +76,6 @@ jobs:
           unset PYTHONPATH
           export PATH="$RUNNER_TEMP/preflight-venv/Scripts:$PATH"
           hash -r
+          branchrift --help
           preflight --help
           python scripts/ci_wheel_smoke.py

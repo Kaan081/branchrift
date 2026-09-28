@@ -2,7 +2,7 @@
 
 ## Scope
 
-Repo Preflight v0.1 is designed as a read-only repository inspection tool. It should not modify repository contents or execute user-configured shell commands.
+BranchRift is designed as a read-only repository inspection tool. It should not modify repository contents or execute user-configured shell commands.
 
 Security-sensitive areas include:
 
@@ -20,4 +20,4 @@ A useful report should include the affected version, reproduction steps, expecte
 
 ## Supported version
 
-During the initial v0.1 development cycle, only the latest published version is supported.
+Only the latest published version is supported.
