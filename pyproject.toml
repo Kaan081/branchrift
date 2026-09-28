@@ -14,6 +14,33 @@ authors = [
 ]
 dependencies = []
 
+keywords = [
+  "git",
+  "git-lfs",
+  "pre-merge",
+  "pre-integration",
+  "developer-tools",
+  "code-ownership",
+  "repository-governance",
+  "unreal-engine",
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Version Control :: Git",
+]
+
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
