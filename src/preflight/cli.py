@@ -1,11 +1,12 @@
 import argparse
 import sys
+from pathlib import Path
 
 from .analyzer import analyze_change
 from .binary_readiness import build_binary_readiness_report
 from .change_facts import build_change_facts_report, file_types_for_change_facts
 from .collisions import build_collision_report
-from .config import load_config
+from .config import load_config, normalize_config
 from .errors import ConfigError, GitError, PreflightError
 from .git import (
     ensure_git_repository,
@@ -24,40 +25,86 @@ from .report import build_report, build_revision_provenance
 from .reporter import print_json_report, print_report
 
 
+DEFAULT_CONFIG_NAME = ".preflight.json"
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Analyze Git changes before integration"
     )
-    parser.add_argument("--base", default="dev", help="Base branch/revision to compare against")
+    parser.add_argument(
+        "--base",
+        default="dev",
+        help="Base branch/revision to compare against",
+    )
     parser.add_argument(
         "--head",
         default="HEAD",
         help="Head branch/revision to analyze without checking it out",
     )
-    parser.add_argument("--config", default=".preflight.json", help="Path to preflight config")
-    parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to preflight config",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output machine-readable JSON",
+    )
     return parser.parse_args(argv)
+
+
+def resolve_config(config_arg, cwd=None):
+    analysis_root = Path(cwd) if cwd is not None else Path.cwd()
+
+    if config_arg is not None:
+        config_path = Path(config_arg)
+
+        if not config_path.is_absolute():
+            config_path = analysis_root / config_path
+
+        return load_config(config_path)
+
+    default_config_path = analysis_root / DEFAULT_CONFIG_NAME
+
+    if default_config_path.exists():
+        return load_config(default_config_path)
+
+    return normalize_config({})
 
 
 def run(argv=None, cwd=None):
     args = parse_args(argv)
-    config = load_config(args.config)
+    config = resolve_config(args.config, cwd=cwd)
 
     ensure_git_repository(cwd=cwd)
     ensure_revision_exists(args.base, cwd=cwd)
     ensure_revision_exists(args.head, cwd=cwd)
+
     branch = get_current_branch(cwd=cwd)
     worktree_status = get_worktree_status(cwd=cwd)
     dirty = bool(worktree_status.strip())
-    topology = get_git_topology(args.base, args.head, cwd=cwd)
+
+    topology = get_git_topology(
+        args.base,
+        args.head,
+        cwd=cwd,
+    )
+
     collisions = build_collision_report(
         get_collision_paths(topology, cwd=cwd),
         config["file_types"],
     )
 
     raw_changes = parse_git_diff(
-        get_diff_name_status(topology["base_sha"], topology["head_sha"], cwd=cwd)
+        get_diff_name_status(
+            topology["base_sha"],
+            topology["head_sha"],
+            cwd=cwd,
+        )
     )
+
     analyzed_changes = []
 
     for raw_change in raw_changes:
@@ -65,25 +112,35 @@ def run(argv=None, cwd=None):
         analyzed_changes.append(analyze_change(context))
 
     change_facts = build_change_facts_report(
-        get_unified_diff(topology["base_sha"], topology["head_sha"], cwd=cwd),
+        get_unified_diff(
+            topology["base_sha"],
+            topology["head_sha"],
+            cwd=cwd,
+        ),
         file_types_for_change_facts(analyzed_changes),
     )
+
     current_head_sha = topology["head_sha"]
+
     if args.head != "HEAD":
         current_head_sha = resolve_commit_sha("HEAD", cwd=cwd)
+
     revision_provenance = build_revision_provenance(
         args.base,
         args.head,
         topology,
         current_head_sha=current_head_sha,
     )
+
     binary_readiness = build_binary_readiness_report(
         analyzed_changes,
         cwd=cwd,
         worktree_status=worktree_status,
         analyzed_head_sha=topology["head_sha"],
         current_head_sha=current_head_sha,
-        head_is_current_checkout=revision_provenance["head_is_current_checkout"],
+        head_is_current_checkout=revision_provenance[
+            "head_is_current_checkout"
+        ],
     )
 
     report = build_report(

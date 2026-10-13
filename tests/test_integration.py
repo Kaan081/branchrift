@@ -188,3 +188,97 @@ def test_cli_can_analyze_explicit_head_without_checkout(tmp_path):
     assert topology["relationship"] == "LINEAR"
     assert topology["ff_eligible"] is True
     assert git(repo, "branch", "--show-current").stdout.strip() == base_branch
+
+def test_cli_runs_without_default_config(tmp_path):
+    repo = tmp_path / "zero-config-repo"
+    repo.mkdir()
+
+    git(repo, "init")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "Preflight Test")
+
+    (repo / "notes.txt").write_text("base\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "initial")
+
+    base_branch = git(repo, "branch", "--show-current").stdout.strip()
+
+    git(repo, "checkout", "-b", "feature/zero-config")
+    (repo / "notes.txt").write_text("feature\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "feature change")
+
+    assert not (repo / ".preflight.json").exists()
+
+    env = os.environ.copy()
+    src_path = str(
+        (__import__("pathlib").Path(__file__).parents[1] / "src").resolve()
+    )
+    env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "preflight",
+            "--base",
+            base_branch,
+            "--json",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+
+    report = json.loads(result.stdout)
+
+    assert report["summary"]["total_changes"] == 1
+    assert report["summary"]["owner_counts"] == {}
+    assert report["summary"]["ownership_status_counts"] == {
+        "not_configured": 1
+    }
+    assert report["summary"]["governance_issue_count"] == 0
+    assert report["summary"]["manual_review_count"] == 0
+
+    change = report["changes"][0]
+
+    assert change["path"] == "notes.txt"
+    assert change["ownership"] == {
+        "status": "not_configured",
+        "owner": None,
+    }
+    assert change["governance_issues"] == []
+
+
+def test_cli_explicit_missing_config_returns_2(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    missing_config = repo / "does-not-exist.json"
+
+    env = os.environ.copy()
+    src_path = str(
+        (__import__("pathlib").Path(__file__).parents[1] / "src").resolve()
+    )
+    env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "preflight",
+            "--config",
+            str(missing_config),
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 2
+    assert "CONFIG ERROR:" in result.stderr
