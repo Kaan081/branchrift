@@ -1,5 +1,10 @@
-from preflight.ownership import get_owner, rule_matches
-
+from preflight.config import OwnershipPolicyStatus
+from preflight.ownership import (
+    OwnershipStatus,
+    get_owner,
+    resolve_ownership,
+    rule_matches,
+)
 
 def test_specific_prefix_wins():
     rules = [
@@ -61,3 +66,64 @@ def test_canonical_prefix_spelling_does_not_change_specificity():
     assert get_owner(path, padded_short_prefix) == "Deep"
     assert get_owner(path, canonical_short_prefix) == "Deep"
     assert get_owner(path, padded_short_prefix) == get_owner(path, canonical_short_prefix)
+
+def test_resolve_known_owner():
+    rules = [{"path": "src/", "owner": "Backend"}]
+
+    result = resolve_ownership(
+        "src/app.py",
+        rules,
+        policy_status=OwnershipPolicyStatus.CONFIGURED,
+    )
+
+    assert result.status is OwnershipStatus.KNOWN
+    assert result.owner == "Backend"
+
+
+def test_resolve_configured_policy_without_match():
+    rules = [{"path": "src/", "owner": "Backend"}]
+
+    result = resolve_ownership(
+        "scripts/deploy.py",
+        rules,
+        policy_status=OwnershipPolicyStatus.CONFIGURED,
+    )
+
+    assert result.status is OwnershipStatus.NO_MATCH
+    assert result.owner is None
+
+
+def test_resolve_missing_policy():
+    result = resolve_ownership(
+        "scripts/deploy.py",
+        [],
+        policy_status=OwnershipPolicyStatus.NOT_CONFIGURED,
+    )
+
+    assert result.status is OwnershipStatus.NOT_CONFIGURED
+    assert result.owner is None
+
+
+def test_resolve_empty_policy():
+    result = resolve_ownership(
+        "scripts/deploy.py",
+        [],
+        policy_status=OwnershipPolicyStatus.CONFIGURED_EMPTY,
+    )
+
+    assert result.status is OwnershipStatus.NOT_CONFIGURED
+    assert result.owner is None
+
+
+def test_resolve_default_owner():
+    rules = [{"path": "src/", "owner": "Backend"}]
+
+    result = resolve_ownership(
+        "scripts/deploy.py",
+        rules,
+        policy_status=OwnershipPolicyStatus.CONFIGURED,
+        default_owner="Core",
+    )
+
+    assert result.status is OwnershipStatus.KNOWN
+    assert result.owner == "Core"

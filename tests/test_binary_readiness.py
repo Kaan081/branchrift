@@ -1,8 +1,15 @@
+from preflight.ownership import OwnershipResult, OwnershipStatus
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+def _known_owner(owner):
+    return OwnershipResult(
+        status=OwnershipStatus.KNOWN,
+        owner=owner,
+    )
 
 from preflight.binary_readiness import (
     build_binary_readiness_report,
@@ -33,6 +40,7 @@ def _change(path, file_type, status="M"):
         "file_type": file_type,
         "git_status": status,
         "owner": "Art",
+        "ownership": _known_owner("Art"),
         "technical_risk": "MEDIUM",
         "confidence": "LOW",
         "required_checks": ["asset verification"],

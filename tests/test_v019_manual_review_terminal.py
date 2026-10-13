@@ -1,5 +1,7 @@
 """Regression: terminal manual-review lists stay bounded while JSON stays complete."""
 
+from preflight.ownership import OwnershipResult, OwnershipStatus
+
 import json
 
 import pytest
@@ -9,8 +11,14 @@ from preflight.report import build_report
 from preflight.reporter import MANUAL_REVIEW_TERMINAL_LIMIT, print_json_report, print_report
 
 
+
 REVIEW_COUNTS = (20, 100, 1000)
 
+def _known_owner(owner):
+    return OwnershipResult(
+        status=OwnershipStatus.KNOWN,
+        owner=owner,
+    )
 
 def _review_path(index):
     alphabet = "abcdefghijklmnopqrstuvwxyz"
@@ -31,6 +39,7 @@ def _review_report(count):
                 "git_status": "M",
                 "file_type": "other",
                 "owner": "Review",
+                "ownership": _known_owner("Review"),
                 "technical_risk": "LOW",
                 "confidence": "MEDIUM",
                 "required_checks": [],

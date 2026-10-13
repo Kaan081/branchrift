@@ -17,6 +17,7 @@ def _summary(**overrides):
         "low_count": 0,
         "manual_review_count": 0,
         "manual_review_files": [],
+        "ownership_status_counts": {},
         "required_checks": [],
         "owners": [],
         "owner_counts": {},
@@ -36,6 +37,11 @@ def _base_report(**overrides):
         "repository_state": "CLEAN",
         "technical_risk": "LOW",
         "governance_status": "PASS",
+        "governance": {
+        "evaluation_status": "evaluated",
+        "ownership_policy_status": "configured",
+        "issues": [],
+},
         "summary": _summary(),
         "changes": [],
     }
@@ -178,6 +184,18 @@ def test_governance_gap_is_visible(capsys):
     print_report(
         _base_report(
             governance_status="ATTENTION",
+governance={
+    "evaluation_status": "evaluated",
+    "ownership_policy_status": "configured",
+    "issues": [
+        {
+            "path": "scripts/orphan.py",
+            "code": "OWNERSHIP_GAP",
+            "priority": "HIGH",
+            "message": "No ownership rule matches scripts/orphan.py",
+        }
+    ],
+},
             summary=_summary(total_changes=1, governance_issue_count=1),
             changes=[
                 {

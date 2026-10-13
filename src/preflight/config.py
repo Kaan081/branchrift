@@ -1,10 +1,15 @@
 import json
 from copy import deepcopy
+from enum import Enum
 from pathlib import Path
 
 from .errors import ConfigError
 from .pathmatch import canonical_prefix
 
+class OwnershipPolicyStatus(str, Enum):
+    NOT_CONFIGURED = "not_configured"
+    CONFIGURED_EMPTY = "configured_empty"
+    CONFIGURED = "configured"
 
 DEFAULT_GOVERNANCE = {
     "critical_escalation": True,
@@ -59,16 +64,13 @@ def validate_config(config):
     if not isinstance(config, dict):
         raise ConfigError("Config root must be an object")
 
-    if "ownership" not in config:
-        raise ConfigError("Config is missing required field: ownership")
+    if "ownership" in config:
+        rules = config["ownership"]
 
-    rules = config["ownership"]
-    if not isinstance(rules, list):
-        raise ConfigError("ownership must be a list")
-    if not rules:
-        raise ConfigError("ownership cannot be empty")
+        if not isinstance(rules, list):
+            raise ConfigError("ownership must be a list")
 
-    validate_ownership_rules(rules)
+        validate_ownership_rules(rules)
 
     if "default_owner" in config:
         default_owner = config["default_owner"]
@@ -201,11 +203,26 @@ def normalize_file_types(config):
     validate_file_types(user_file_types)
     return deepcopy(user_file_types)
 
+def get_ownership_policy_status(config):
+    ownership_present = "ownership" in config
+    default_owner_present = "default_owner" in config
+
+    rules = config.get("ownership", [])
+    default_owner = config.get("default_owner")
+
+    if rules or default_owner is not None:
+        return OwnershipPolicyStatus.CONFIGURED
+
+    if ownership_present or default_owner_present:
+        return OwnershipPolicyStatus.CONFIGURED_EMPTY
+
+    return OwnershipPolicyStatus.NOT_CONFIGURED
 
 def normalize_config(config):
     normalized = {
         **deepcopy(config),
-        "ownership": deepcopy(config["ownership"]),
+        "ownership": deepcopy(config.get("ownership", [])),
+        "ownership_policy_status": get_ownership_policy_status(config),
         "governance": normalize_governance_config(config),
         "file_types": normalize_file_types(config),
     }
