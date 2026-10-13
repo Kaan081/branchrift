@@ -129,7 +129,10 @@ def test_cli_bad_config_returns_2(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     bad_config = repo / ".preflight.json"
-    bad_config.write_text("{}", encoding="utf-8")
+    bad_config.write_text(
+    '{"ownership": "Backend"}',
+    encoding="utf-8",
+)
 
     env = os.environ.copy()
     src_path = str((__import__("pathlib").Path(__file__).parents[1] / "src").resolve())

@@ -2,6 +2,7 @@ import pytest
 
 from preflight.config import (
     DEFAULT_FILE_TYPES,
+    OwnershipPolicyStatus,
     normalize_config,
     validate_config,
     validate_ownership_rules,
@@ -9,15 +10,39 @@ from preflight.config import (
 from preflight.errors import ConfigError
 
 
-def test_missing_ownership_fails():
-    with pytest.raises(ConfigError, match="ownership"):
-        validate_config({})
+def test_missing_ownership_is_not_configured():
+    validate_config({})
+
+    result = normalize_config({})
+
+    assert result["ownership"] == []
+    assert (
+        result["ownership_policy_status"]
+        is OwnershipPolicyStatus.NOT_CONFIGURED
+    )
 
 
-def test_empty_ownership_fails():
-    with pytest.raises(ConfigError, match="cannot be empty"):
-        validate_config({"ownership": []})
+def test_empty_ownership_is_configured_empty():
+    config = {"ownership": []}
 
+    validate_config(config)
+    result = normalize_config(config)
+
+    assert result["ownership"] == []
+    assert (
+        result["ownership_policy_status"]
+        is OwnershipPolicyStatus.CONFIGURED_EMPTY
+    )
+def test_default_owner_counts_as_configured_ownership():
+    config = {"default_owner": "Core"}
+
+    validate_config(config)
+    result = normalize_config(config)
+
+    assert (
+        result["ownership_policy_status"]
+        is OwnershipPolicyStatus.CONFIGURED
+    )
 
 def test_duplicate_rule_fails():
     rules = [
