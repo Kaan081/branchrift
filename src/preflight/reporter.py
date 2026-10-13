@@ -78,15 +78,6 @@ def terminal_safe(value):
             escaped.append(f"\\U{code:08x}")
     return "".join(escaped)
 
-
-def collect_governance_issues(report):
-    issues = []
-    for change in report["changes"]:
-        for issue in change["governance_issues"]:
-            issues.append({"path": change["path"], **issue})
-    return issues
-
-
 def _display_text(value):
     text = str(value)
     if len(text) > MAX_FACT_TEXT:
@@ -277,11 +268,23 @@ def _print_integration(report):
 
 
 def _print_governance(report):
-    issues = collect_governance_issues(report)
+    governance = report["governance"]
+    policy_status = governance["ownership_policy_status"]
+
     print()
     print("Governance:")
+
+    if governance["evaluation_status"] == "not_evaluated":
+        print(
+            "  Ownership policy: "
+            f"{terminal_safe(policy_status.replace('_', ' '))}"
+        )
+        print("  Evaluation: not evaluated")
+        return
+
     print(f"  {terminal_safe(report['governance_status'])}")
-    for issue in issues:
+
+    for issue in governance["issues"]:
         print(
             f"  - [{terminal_safe(issue['code'])}] "
             f"{terminal_safe(issue['path'])}"

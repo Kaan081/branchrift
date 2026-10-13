@@ -1,4 +1,10 @@
+from .config import OwnershipPolicyStatus
 from .ownership import OwnershipStatus
+
+
+SCHEMA_VERSION = "1.0"
+COMPARISON_MERGE_BASE_HEAD = "merge-base...head"
+
 
 def build_summary(changes):
     high_count = 0
@@ -38,6 +44,7 @@ def build_summary(changes):
 
         if ownership.status is OwnershipStatus.KNOWN:
             owner = ownership.owner
+
             if owner is not None:
                 owners.add(owner)
                 owner_counts[owner] = owner_counts.get(owner, 0) + 1
@@ -75,8 +82,10 @@ def build_summary(changes):
 def calculate_overall_technical_risk(summary):
     if summary["high_count"] > 0:
         return "HIGH"
+
     if summary["medium_count"] > 0:
         return "MEDIUM"
+
     return "LOW"
 
 
@@ -114,14 +123,35 @@ def calculate_governance_status(changes, governance):
 
     return "ATTENTION"
 
-    unknown_ratio = unknown_count / len(changes)
-    if (
-        unknown_count >= governance["critical_unknown_count"]
-        or unknown_ratio >= governance["critical_unknown_ratio"]
-    ):
-        return "CRITICAL"
 
-    return "ATTENTION"
+def build_governance_report(changes, ownership_policy_status):
+    if ownership_policy_status in (
+        OwnershipPolicyStatus.NOT_CONFIGURED,
+        OwnershipPolicyStatus.CONFIGURED_EMPTY,
+    ):
+        return {
+            "evaluation_status": "not_evaluated",
+            "ownership_policy_status": ownership_policy_status.value,
+            "issues": [],
+        }
+
+    issues = []
+
+    for change in changes:
+        for issue in change["governance_issues"]:
+            issues.append(
+                {
+                    "path": change["path"],
+                    **issue,
+                }
+            )
+
+    return {
+        "evaluation_status": "evaluated",
+        "ownership_policy_status": ownership_policy_status.value,
+        "issues": issues,
+    }
+
 
 def serialize_ownership(ownership):
     return {
@@ -134,16 +164,16 @@ def serialize_change(change):
     serialized = dict(change)
 
     ownership = serialized.get("ownership")
+
     if ownership is not None:
         serialized["ownership"] = serialize_ownership(ownership)
 
     old_ownership = serialized.get("old_ownership")
+
     if old_ownership is not None:
         serialized["old_ownership"] = serialize_ownership(old_ownership)
 
     return serialized
-
-COMPARISON_MERGE_BASE_HEAD = "merge-base...head"
 
 
 def build_revision_provenance(
@@ -153,6 +183,7 @@ def build_revision_provenance(
     current_head_sha=None,
 ):
     head_sha = topology["head_sha"]
+
     return {
         "base": {
             "requested": requested_base,
@@ -182,11 +213,13 @@ def build_report(
     change_facts=None,
     binary_readiness=None,
     revision_provenance=None,
+    ownership_policy_status=OwnershipPolicyStatus.CONFIGURED,
 ):
     summary = build_summary(changes)
     public_changes = [serialize_change(change) for change in changes]
 
     report = {
+        "schema_version": SCHEMA_VERSION,
         "branch": branch,
         "base": base_branch,
         "head": head_revision,
@@ -195,6 +228,10 @@ def build_report(
         "governance_status": calculate_governance_status(
             changes,
             governance_config,
+        ),
+        "governance": build_governance_report(
+            changes,
+            ownership_policy_status,
         ),
         "summary": summary,
         "changes": public_changes,

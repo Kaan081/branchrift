@@ -1,73 +1,57 @@
 # BranchRift
 
-
 https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7
 
+> See integration risk before branches come back together.
+> See integration risk before branches come back together.
 
-See integration risk before branches come back together.
+**BranchRift is a read-only Git CLI that surfaces branch divergence, same-path collisions, binary-sensitive changes, Git LFS readiness, ownership gaps, and review requirements before integration.**
 
-**See branch divergence, same-path collisions, ownership gaps, and Git LFS readiness before integration — without modifying your repository.**
-
-BranchRift is a read-only Git CLI that surfaces branch divergence, same-path collisions, ownership gaps, binary-sensitive changes, and Git LFS readiness before integration. It is for developers and small teams that want a repeatable integration check before merging, promoting, or reviewing a branch.
-
-Two branches touched the same `.umap`. Know before you integrate.
-
-Source, configuration, assets, and other Git changes share the same report. Paths classified as `asset` or `map`, including `.uasset` and `.umap`, are treated as binary-sensitive and checked for Git LFS readiness. BranchRift does not inspect the contents of those files, does not predict merge conflicts, and does not modify the repository.
+Two branches touched the same `.umap`? Know before you integrate.
 
 [![PyPI](https://img.shields.io/pypi/v/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Python](https://img.shields.io/pypi/pyversions/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Tests](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/Kaan081/branchrift.svg)](LICENSE)
 
-BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available in v0.2.0 for compatibility.
-
-Repository: <https://github.com/Kaan081/branchrift>
-Issues: <https://github.com/Kaan081/branchrift/issues>
-
-It answers questions such as:
-
-- Did the base and feature branch diverge?
-- Can this branch still fast-forward?
-- Did both sides modify the same repository path?
-- Is that collision a binary-sensitive `.uasset` or `.umap`?
-- Are Git LFS-managed files actually ready in the current checkout?
-- Did a change cross an ownership boundary?
-- Which changed files deserve manual review?
-- Which verification steps should happen before integration?
-
-BranchRift is intentionally advisory.
+BranchRift is advisory and read-only.
 
 It does **not** merge, checkout, pull, commit, delete, modify, or automatically approve repository changes.
 
+BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available in v0.2.1 for compatibility.
+
 ---
 
-## Why this exists
+## Why BranchRift?
 
-A normal Git diff tells you what changed.
+A normal Git diff answers:
 
-Before integration, teams often need a different view:
+> What changed?
 
-> **What could make this branch expensive or risky to integrate?**
+Before integration, teams often need a different question:
 
-BranchRift combines several signals that are normally inspected separately:
+> What could make this branch expensive or risky to integrate?
 
-- Git topology;
-- same-path changes on both sides of a branch;
-- binary-sensitive files;
+BranchRift combines signals that are normally inspected separately:
+
+- branch topology and divergence;
+- ahead / behind counts;
+- fast-forward eligibility;
+- same-path changes on both sides;
+- binary-sensitive collisions;
 - Git LFS readiness;
+- exact conservative text-change facts;
 - repository ownership;
-- governance gaps;
+- ownership gaps and boundary crossings;
 - technical-risk signals;
 - required verification;
 - focused manual-review paths.
 
-For Unreal Engine teams using Git and Git LFS, one especially useful case is simple:
+For Unreal Engine teams using Git and Git LFS, one common example is:
 
-> **Two branches touched the same `.umap`. Know before you integrate.**
+> Two branches modified the same `.umap`.
 
-BranchRift does not replace Git, Git LFS, file locking, code review, CI, or your source-control workflow.
-
-It adds a read-only pre-integration view on top of them.
+BranchRift surfaces that overlap before integration without pretending it can semantically inspect Unreal binary assets.
 
 ---
 
@@ -79,13 +63,51 @@ Install with `pipx`:
 pipx install branchrift
 ```
 
-Or with `pip`:
+Or:
 
 ```bash
 pip install branchrift
 ```
 
-Create `.preflight.json` in the repository root:
+Then run inside a Git repository:
+
+```bash
+branchrift --base main
+```
+
+No configuration file is required.
+
+BranchRift can run in **zero-config mode** and still analyze:
+
+- topology;
+- divergence;
+- collisions;
+- file classification;
+- technical risk;
+- exact change facts;
+- Git LFS readiness;
+- required verification;
+- manual-review candidates.
+
+Analyze another fetched revision without checking it out:
+
+```bash
+branchrift --base main --head origin/feature/environment-pass
+```
+
+Produce JSON:
+
+```bash
+branchrift --base main --json
+```
+
+---
+
+## Optional ownership policy
+
+Ownership configuration is optional.
+
+If you want ownership and governance analysis, create `.preflight.json` in the repository root:
 
 ```json
 {
@@ -104,36 +126,322 @@ Create `.preflight.json` in the repository root:
 }
 ```
 
-Then run:
+Then run normally:
 
 ```bash
 branchrift --base main
 ```
 
-Or inspect another fetched branch without checking it out:
+BranchRift discovers the default `.preflight.json` from the **Git repository root**, even when launched from a nested directory.
 
-```bash
-branchrift --base main --head origin/feature/environment-pass
+For example:
+
+```text
+repo/
+├── .preflight.json
+└── Source/
+    └── Game/
 ```
 
-The legacy `preflight` command remains available in v0.2.0 for compatibility.
+Running BranchRift from `Source/Game/` still discovers:
+
+```text
+repo/.preflight.json
+```
+
+You can also request a specific configuration explicitly:
+
+```bash
+branchrift --base main --config /path/to/preflight.json
+```
+
+Explicit config paths are strict.
+
+If an explicitly requested config file is missing or invalid, BranchRift exits with a configuration error.
 
 ---
 
-## Example: catch integration risk before merge
+## Zero-config ownership semantics
 
-A report can surface a divergent branch, a same-path Unreal map collision, and LFS readiness in one run. The block below is an illustration of the current terminal report shape. The revisions and paths are examples, not a recorded run.
+BranchRift distinguishes between:
+
+```text
+ownership policy not configured
+```
+
+and:
+
+```text
+ownership policy configured, but no rule matched this path
+```
+
+These are not the same condition.
+
+When ownership is not configured:
+
+- analysis still runs;
+- no synthetic `OWNERSHIP_GAP` is created;
+- governance is not falsely escalated;
+- missing configuration does not force manual review;
+- reports explicitly say ownership governance was not evaluated.
+
+When ownership is configured and a changed path matches no rule:
+
+```text
+NO_MATCH
+```
+
+is a real ownership gap.
+
+This distinction is represented explicitly in structured output.
+
+---
+
+## Ownership matching
+
+BranchRift currently resolves one effective owner per path.
+
+### Prefix rule
+
+```json
+{
+  "match": "prefix",
+  "path": "src/payment/",
+  "owner": "Payments"
+}
+```
+
+A prefix owns a repository subtree.
+
+Prefix matching is path-segment aware.
+
+For example:
+
+```text
+src
+```
+
+matches:
+
+```text
+src/app.py
+```
+
+but not:
+
+```text
+src2/app.py
+```
+
+### Exact-path rule
+
+```json
+{
+  "match": "path_exact",
+  "path": "Dockerfile",
+  "owner": "Platform"
+}
+```
+
+When multiple rules match:
+
+1. the most-specific path wins;
+2. an exact-path rule wins over an equivalent prefix rule.
+
+A `default_owner` may also be configured.
+
+---
+
+## What BranchRift reports
+
+### Revision topology
+
+BranchRift resolves the requested revisions and reports:
+
+- requested base;
+- requested head;
+- resolved SHAs;
+- merge-base;
+- ahead count;
+- behind count;
+- topology relationship;
+- fast-forward eligibility.
+
+Possible relationships include:
+
+```text
+SAME
+LINEAR
+HEAD_BEHIND
+DIVERGED
+```
+
+---
+
+### Same-path collisions
+
+A collision means the same repository path changed independently on both sides since the merge-base.
+
+Conceptually:
+
+```text
+merge-base → base changed path X
+merge-base → head changed path X
+```
+
+Therefore:
+
+```text
+path X = same-path collision
+```
+
+This does **not** mean BranchRift claims Git will definitely produce a textual merge conflict.
+
+It is an integration-review signal.
+
+---
+
+### Binary-sensitive files
+
+Files classified as `asset` or `map` are treated as binary-sensitive.
+
+For Unreal projects this includes:
+
+```text
+.uasset
+.umap
+```
+
+A same-path collision involving one of these files is highlighted as binary-sensitive.
+
+BranchRift does not inspect the internal semantics of `.uasset` or `.umap` files.
+
+---
+
+### Git LFS readiness
+
+BranchRift can inspect Git LFS state for relevant changed files.
+
+Possible states include:
+
+```text
+hydrated
+pointer
+missing
+unknown
+not LFS-managed
+```
+
+When the analyzed revision is the current checkout, BranchRift can use working-tree state to determine readiness.
+
+When analyzing another revision through `--head`, BranchRift does not incorrectly reuse current-checkout hydration state.
+
+If readiness cannot be established safely, it reports uncertainty instead.
+
+Git LFS itself is optional.
+
+---
+
+### Exact change facts
+
+For text diffs, BranchRift can extract conservative facts such as:
+
+```text
+line_added
+line_removed
+value_changed
+```
+
+These are literal observations from the Git diff.
+
+They are not AST analysis and do not claim application-level meaning.
+
+Binary assets and maps do not produce fake internal change facts.
+
+---
+
+### Technical risk
+
+BranchRift separates technical risk from governance.
+
+Examples of signals include:
+
+- source changes;
+- build/config changes;
+- maps;
+- assets;
+- deletions;
+- renames;
+- copies.
+
+Technical risk is reported independently from repository ownership policy.
+
+---
+
+### Required verification
+
+Changed file types can produce targeted verification requirements such as:
+
+```text
+build verification
+asset verification
+map integration verification
+build/config verification
+reference verification
+```
+
+BranchRift does not claim the change is correct.
+
+It makes the required verification explicit.
+
+---
+
+## Governance
+
+Ownership governance is evaluated only when ownership policy is configured.
+
+Internally, policy state is explicit:
+
+```text
+not_configured
+configured_empty
+configured
+```
+
+Per-path ownership state is also explicit:
+
+```text
+known
+not_configured
+no_match
+```
+
+A configured ownership policy with an unmatched changed path can produce:
+
+```text
+OWNERSHIP_GAP
+```
+
+A confirmed rename across two known owners can produce:
+
+```text
+OWNERSHIP_BOUNDARY_CROSSING
+```
+
+Ownership boundary crossings are treated as critical governance information.
+
+Governance remains advisory and does not automatically block the repository.
+
+---
+
+## Example terminal output
 
 ```text
 === BranchRift ===
+
 Analyzed:
   Base: main
-        0123456789abcdef0123456789abcdef01234567
   Head: HEAD
-        fedcba9876543210fedcba9876543210fedcba98
-  Merge base: abcdefabcdefabcdefabcdefabcdefabcdefabcd
-  Comparison: merge-base...head
-  Head is current checkout: yes
   Current branch: feature/environment-pass
   Repository state: CLEAN
 
@@ -143,21 +451,6 @@ What changed:
   High risk: 0
   Medium risk: 14
   Low risk: 0
-  Git status mix: A=12, M=2
-  File types: asset=12, map=1, source=1
-  Owners: Code=1, Content=13
-
-  Source/config:
-    Source/Game/Inventory.cpp
-
-  Binary:
-    Content/Maps/L_Main.umap
-
-Repository readiness:
-  Content/Maps/L_Main.umap
-    LFS-managed: yes
-    State: pointer
-    Readiness: attention
 
 Integration:
   Topology: DIVERGED
@@ -175,613 +468,75 @@ Governance:
 Required verification:
   - build verification
   - map integration verification
+
   Manual review: 2 files
     - Content/Maps/L_Main.umap
     - Source/Game/Inventory.cpp
 ```
 
-A **collision** means the same repository path changed on both sides since the merge-base.
-
-It does **not** mean BranchRift is claiming that Git will definitely produce a textual merge conflict.
-
-For binary files such as `.uasset` and `.umap`, BranchRift marks the overlap as **BINARY-SENSITIVE** instead of pretending it can inspect their internal semantics.
-
----
-
-## What BranchRift reports
-
-BranchRift currently reports:
-
-- requested base and head revisions;
-- resolved commit SHAs;
-- merge-base;
-- ahead/behind counts;
-- topology relationship;
-- fast-forward eligibility;
-- same-path branch collisions;
-- binary-sensitive asset/map collisions;
-- conservative exact text change facts;
-- Git LFS state;
-- working-tree readiness;
-- configurable repository ownership;
-- ownership gaps;
-- ownership-boundary crossings;
-- technical-risk signals;
-- required verification checks;
-- focused manual-review paths;
-- dirty working-tree state;
-- revision provenance;
-- human-readable terminal output;
-- deterministic JSON output.
-
----
-
-## Design principles
-
-BranchRift is deliberately:
-
-- **read-only** — it never mutates the repository;
-- **conservative** — it does not invent semantics it cannot prove;
-- **explicit** — topology, provenance, readiness, and uncertainty are visible;
-- **automation-friendly** — terminal and JSON output are both supported;
-- **Git-native** — it works with an existing Git workflow instead of replacing source control;
-- **focused** — it prioritizes integration signals instead of trying to become a universal repository analyzer.
-
----
-
-## Requirements
-
-- Python 3.10+
-- Git available on `PATH`
-
-Runtime dependencies:
-
-- Python standard library only
-
-Git LFS is optional.
-
-When Git LFS is unavailable, source-only analysis can still complete, while LFS-specific information may become unknown.
-
----
-
-## Installation
-
-Recommended isolated CLI installation:
-
-```bash
-pipx install branchrift
-```
-
-Standard Python installation:
-
-```bash
-pip install branchrift
-```
-
-Verify:
-
-```bash
-branchrift --help
-```
-
-The legacy `preflight` command remains available in v0.2.0 for compatibility.
-
----
-
-## Install for development
-
-Clone the repository:
-
-```bash
-git clone https://github.com/Kaan081/branchrift.git
-cd branchrift
-```
-
-Install in editable mode:
-
-```bash
-python -m pip install -e .
-```
-
-Install test dependencies:
-
-```bash
-python -m pip install -e '.[dev]'
-```
-
-Run the suite:
-
-```bash
-python -m pytest -q
-```
-
----
-
-## Configuration
-
-BranchRift reads repository policy from `.preflight.json` by default.
-
-A minimal configuration requires ownership rules:
-
-```json
-{
-  "ownership": [
-    {
-      "match": "prefix",
-      "path": "src/",
-      "owner": "Backend"
-    },
-    {
-      "match": "path_exact",
-      "path": "Dockerfile",
-      "owner": "Platform"
-    }
-  ]
-}
-```
-
-`ownership` is required.
-
-Governance thresholds and default file-type rules are provided automatically unless overridden.
-
-You can also use a config file elsewhere:
-
-```bash
-branchrift --base main --config /path/to/preflight.json
-```
-
----
-
-## Ownership matching
-
-A repository can contain many ownership rules.
-
-Each changed path resolves to one effective owner.
-
-### Prefix ownership
-
-A `prefix` rule owns a repository subtree:
-
-```json
-{
-  "match": "prefix",
-  "path": "src/payment/",
-  "owner": "Payments"
-}
-```
-
-### Exact-path ownership
-
-A `path_exact` rule owns one repository-relative path:
-
-```json
-{
-  "match": "path_exact",
-  "path": "Dockerfile",
-  "owner": "Platform"
-}
-```
-
-When multiple ownership rules match:
-
-1. the most-specific path wins;
-2. an exact-path rule wins over an equivalent prefix rule.
-
-Prefix matching is path-segment aware.
-
-For example:
+Without ownership configuration, governance output is explicit:
 
 ```text
-src
+Governance:
+  Ownership policy: not configured
+  Evaluation: not evaluated
 ```
-
-matches:
-
-```text
-src/app.py
-```
-
-but does not match:
-
-```text
-src2/app.py
-```
-
-Equivalent prefix spellings such as:
-
-```text
-src
-src/
-src\
-```
-
-are canonicalized consistently.
-
-An unmatched path becomes `Unknown`.
-
-Analysis continues, but the path is reported as an ownership governance gap.
-
-> BranchRift currently resolves one effective owner per path. Multiple simultaneous co-owners are not modeled.
 
 ---
 
-## Running BranchRift
+## JSON output
 
-Compare the current checked-out revision against `main`:
-
-```bash
-branchrift --base main
-```
-
-Compare the current checked-out revision against `dev`:
-
-```bash
-branchrift --base dev
-```
-
-Analyze another fetched branch without checking it out:
-
-```bash
-branchrift --base main --head origin/feature/my-change
-```
-
-Use an explicit configuration file:
-
-```bash
-branchrift --base main --config /path/to/preflight.json
-```
-
-Produce machine-readable JSON:
+Use:
 
 ```bash
 branchrift --base main --json
 ```
 
----
+Public reports include:
 
-## Revision topology
-
-BranchRift resolves both revisions to commit SHAs and reports their relationship.
-
-Possible topology relationships include:
-
-- `SAME`
-- `LINEAR`
-- `HEAD_BEHIND`
-- `DIVERGED`
-
-The report also includes:
-
-- ahead count;
-- behind count;
-- merge-base;
-- fast-forward eligibility.
-
-Example:
-
-```text
-Integration:
-  Topology: DIVERGED
-  Fast-forward eligible: no
-  Ahead: 7
-  Behind: 4
+```json
+{
+  "schema_version": "1.0"
+}
 ```
 
-This is advisory information.
+Ownership results are structured:
 
-BranchRift does not automatically merge or block the branch.
-
----
-
-## Same-path collisions
-
-A collision means that the **same repository path** changed independently on both sides since the merge-base.
-
-Conceptually:
-
-```text
-merge-base -> base side changed path X
-merge-base -> head side changed path X
+```json
+{
+  "ownership": {
+    "status": "known",
+    "owner": "Backend"
+  }
+}
 ```
 
-then:
+Zero-config ownership is represented as:
 
-```text
-path X = collision
+```json
+{
+  "ownership": {
+    "status": "not_configured",
+    "owner": null
+  }
+}
 ```
 
-Example:
+Structured governance makes evaluation state explicit:
 
-```text
-Integration:
-  Same-path collisions: 2
-  Binary-sensitive collisions: 1
-    - Content/Maps/L_Main.umap [map, BINARY-SENSITIVE]
-    - src/app.py [source]
+```json
+{
+  "governance": {
+    "evaluation_status": "not_evaluated",
+    "ownership_policy_status": "not_configured",
+    "issues": []
+  }
+}
 ```
 
-A collision is **not** a prediction that Git must produce a merge conflict.
+The legacy `owner` field and `governance_status` remain available in v0.2.1 for compatibility.
 
-It is an integration-review signal.
-
-### Binary-sensitive collisions
-
-Files classified as `asset` or `map` are treated as binary-sensitive.
-
-For Unreal projects this includes:
-
-- `.uasset`
-- `.umap`
-
-BranchRift does not claim to inspect semantic changes inside these files.
-
-### Rename behavior
-
-Collision detection is intentionally path-based and uses path-string overlap.
-
-It does not currently model rename identity when calculating same-path collisions.
-
----
-
-## Exact change facts
-
-BranchRift can extract conservative facts from text diffs.
-
-These facts are literal observations from the merge-base unified diff.
-
-They are **not** semantic code analysis.
-
-A `value_changed` fact is recorded only when one removed line and one added line assign the same key to different scalar values.
-
-Other meaningful text changes can appear as:
-
-- `line_added`
-- `line_removed`
-
-For example:
-
-```text
-max_players: 4 -> 8
-```
-
-BranchRift intentionally avoids pretending to understand what that change means to the application.
-
-### Binary files
-
-Binary diffs and files classified as `asset` or `map` do not produce internal change facts.
-
-BranchRift does not claim to inspect internal Unreal asset/map contents.
-
-### Git LFS pointer metadata
-
-A valid Git LFS pointer contains transport metadata such as:
-
-```text
-version
-oid
-size
-```
-
-When the changed content is itself a valid LFS pointer, those transport lines are not reported as meaningful exact change facts.
-
-Ordinary source text that happens to contain words such as `size` or `oid` is not suppressed.
-
----
-
-## Binary and Git LFS readiness
-
-Asset and map changes receive readiness information.
-
-A changed path managed by Git LFS can also receive a readiness record even when its semantic file type remains `other`.
-
-For example, `.wav` is not classified as an asset by default, but it can still receive LFS readiness information if Git attributes identify it as LFS-managed.
-
-Example:
-
-```text
-Repository readiness:
-  Content/Maps/L_Main.umap
-    LFS-managed: yes
-    State: hydrated
-    Readiness: ready
-```
-
-Possible states can include:
-
-- hydrated;
-- pointer;
-- missing;
-- unknown;
-- not LFS-managed.
-
-### Current checkout
-
-When the analyzed revision is the current checkout, BranchRift can use working-tree state and Git LFS information to determine readiness.
-
-A hydrated LFS file can be reported as ready.
-
-A pointer left in the working tree can require attention.
-
-### Historical or non-current revisions
-
-When `--head` is not the currently checked-out commit, BranchRift does not incorrectly apply current working-tree hydration state to that historical revision.
-
-Instead, readiness can become:
-
-```text
-unknown
-```
-
-with the reason:
-
-```text
-analyzed_head_not_current_checkout
-```
-
-This is intentional.
-
-The tool prefers explicit uncertainty over a misleading conclusion.
-
----
-
-## Detached HEAD support
-
-BranchRift supports SHA-based analysis from detached HEAD checkouts.
-
-A detached checkout is reported as:
-
-```text
-DETACHED
-```
-
-Topology, collisions, change facts, provenance, and revision analysis remain commit/SHA based.
-
-This is useful for environments where a branch name is not available, including some CI workflows.
-
----
-
-## Revision provenance
-
-Every report records which revisions were actually analyzed.
-
-This includes:
-
-- requested base;
-- resolved base SHA;
-- requested head;
-- resolved head SHA;
-- merge-base SHA;
-- comparison range;
-- whether the analyzed head is the current checkout.
-
-Example:
-
-```text
-Analyzed:
-  Base: main
-        0123456789abcdef0123456789abcdef01234567
-  Head: origin/feature/test
-        fedcba9876543210fedcba9876543210fedcba98
-  Merge base: abcdefabcdefabcdefabcdefabcdefabcdefabcd
-  Comparison: merge-base...head
-  Head is current checkout: no
-```
-
-This makes the report auditable and avoids ambiguity about which repository state produced a result.
-
----
-
-## Dirty working tree
-
-BranchRift reports whether the current worktree is clean or dirty.
-
-Example:
-
-```text
-Repository state: DIRTY
-Warning: uncommitted changes are not included in the branch diff.
-```
-
-The branch analysis remains revision-based.
-
-A dirty worktree is reported as context rather than silently mixed into the comparison.
-
----
-
-## Redirecting JSON output
-
-JSON output is available with:
-
-```bash
-branchrift --base main --json
-```
-
-If shell redirection creates the output file **inside the repository**:
-
-```bash
-branchrift --base main --json > report.json
-```
-
-the shell creates `report.json` before BranchRift begins.
-
-The repository may therefore correctly appear as `DIRTY`.
-
-Redirect outside the inspected repository if you need the worktree state to remain unchanged.
-
----
-
-## Git command timeouts
-
-Git operations have timeout budgets based on expected cost.
-
-| Operation class | Budget | Examples |
-| --- | ---: | --- |
-| fast | 15s | revision lookup, current branch, merge-base |
-| normal | 30s | name-status, worktree status, `check-attr` |
-| expensive | 90s | unified diff, collision scan, `git lfs ls-files` |
-
-A timeout becomes a `GitError`.
-
-BranchRift does not silently return a partial report after a Git timeout.
-
----
-
-## UTF-8 and terminal output
-
-Git stdout and stderr are decoded as UTF-8 on Windows and Linux.
-
-This avoids relying on the Windows ANSI code page for Git output.
-
-Valid Unicode text such as:
-
-```text
-—
-→
-çağrı
-İstanbul
-```
-
-is preserved internally.
-
-If the active terminal encoding cannot represent a character, BranchRift escapes that character deterministically at the output boundary instead of crashing.
-
-For example:
-
-```text
-→
-```
-
-can become:
-
-```text
-\u2192
-```
-
-on a limited terminal encoding.
-
-JSON output keeps normal `json.dumps` escaping behavior.
-
----
-
-## Bounded terminal output
-
-Large repositories can produce long manual-review lists.
-
-Terminal output therefore shows at most 20 manual-review paths.
-
-For example:
-
-```text
-Manual review: 57 files
-  - path/one
-  - path/two
-  ...
-  ... 37 more paths omitted
-```
-
-The full list is still available in JSON output.
-
-This keeps interactive output readable without discarding machine-readable information.
+JSON output contains the complete report even when interactive terminal sections are intentionally bounded.
 
 ---
 
@@ -789,17 +544,17 @@ This keeps interactive output readable without discarding machine-readable infor
 
 Default semantic file types include:
 
-- `source`
-- `asset`
-- `map`
-- `build_config`
-- fallback `other`
+```text
+source
+asset
+map
+build_config
+other
+```
 
-Default examples include:
+Examples:
 
 ### Source
-
-Extensions such as:
 
 ```text
 .py
@@ -848,57 +603,51 @@ Classification precedence is:
 1. exact filename;
 2. most-specific path prefix;
 3. extension;
-4. `other`.
+4. fallback `other`.
 
 Custom `file_types` rules replace the defaults.
 
 ---
 
-## Governance
+## Dirty worktree
 
-BranchRift separates technical risk from governance state.
-
-Default governance configuration:
-
-```json
-{
-  "critical_escalation": true,
-  "critical_unknown_count": 5,
-  "critical_unknown_ratio": 0.25
-}
-```
-
-Ownership gaps initially produce:
+BranchRift reports whether the current worktree is clean or dirty.
 
 ```text
-ATTENTION
+Repository state: DIRTY
 ```
 
-When configured count/ratio thresholds are crossed, governance can escalate.
+Branch analysis remains revision-based.
 
-A confirmed ownership-boundary crossing is treated as critical governance information.
-
-Governance status does not automatically block the repository.
-
-BranchRift remains advisory.
+Uncommitted changes are not silently mixed into the branch comparison.
 
 ---
 
-## Required verification
+## Detached HEAD
 
-Changed file types can produce targeted verification requirements.
+BranchRift supports SHA-based analysis from detached HEAD checkouts.
 
-Examples include:
+A detached checkout is reported as:
 
 ```text
-build verification
-asset verification
-map integration verification
+DETACHED
 ```
 
-The goal is not to claim that a change is correct.
+Topology and comparison logic remain commit-based.
 
-The goal is to make the required human or automated verification explicit.
+---
+
+## Terminal output
+
+Large manual-review lists are bounded in interactive output.
+
+The full list remains available in JSON.
+
+Repository and configuration-derived terminal text is escaped to avoid control-character injection.
+
+Unicode Git output is decoded as UTF-8.
+
+If the active terminal cannot represent a character, BranchRift escapes it deterministically instead of crashing.
 
 ---
 
@@ -908,7 +657,7 @@ The goal is to make the required human or automated verification explicit.
 | ---: | --- |
 | `0` | Analysis completed successfully |
 | `2` | Configuration error |
-| `3` | Git/repository/revision error |
+| `3` | Git / repository / revision error |
 | `4` | Known BranchRift domain error |
 
 A completed analysis still returns `0` when it discovers:
@@ -917,28 +666,27 @@ A completed analysis still returns `0` when it discovers:
 - critical governance;
 - collisions;
 - a dirty worktree;
-- required manual review.
+- manual-review requirements.
 
-BranchRift is advisory in the current release.
+BranchRift is advisory in v0.2.1.
 
 ---
 
-## Security model
+## Safety model
 
 BranchRift is intentionally read-only.
 
-The CLI:
+It:
 
 - never uses `shell=True`;
-- passes Git arguments as an argument list;
-- validates user-supplied Git revision arguments;
+- passes Git arguments as argument lists;
+- validates Git revision arguments;
 - checks Git return codes;
-- handles Git stderr explicitly;
-- applies Git command timeouts;
-- disables external diff helpers during diff inspection;
-- disables textconv helpers during diff inspection;
-- disables fsmonitor hooks during worktree status inspection;
-- escapes terminal control characters from repository/config-derived display text;
+- applies Git operation timeouts;
+- disables external diff helpers where appropriate;
+- disables textconv during diff inspection;
+- disables fsmonitor hooks during worktree inspection;
+- escapes terminal control characters;
 - does not execute commands from `.preflight.json`;
 - does not require API keys;
 - does not require credentials;
@@ -949,69 +697,57 @@ The CLI:
 - never deletes repository data;
 - never modifies analyzed repository files.
 
-See [`SECURITY.md`](SECURITY.md) for vulnerability reporting guidance.
+See [`SECURITY.md`](SECURITY.md) for security reporting.
 
 ---
 
-## JSON output
+## Requirements
 
-Use:
+- Python 3.10+
+- Git available on `PATH`
+
+Runtime dependencies:
+
+- Python standard library only
+
+Git LFS is optional.
+
+---
+
+## Development
+
+Clone:
 
 ```bash
-branchrift --base main --json
+git clone https://github.com/Kaan081/branchrift.git
+cd branchrift
 ```
 
-JSON output contains the full structured report, including data that may be truncated in terminal presentation.
+Install editable:
 
-It is intended for:
+```bash
+python -m pip install -e .
+```
 
-- scripts;
-- CI experimentation;
-- reporting;
-- downstream tooling;
-- automated inspection.
+Install development dependencies:
 
-BranchRift does not currently turn risk/governance findings into blocking exit codes.
+```bash
+python -m pip install -e '.[dev]'
+```
 
----
+Run tests:
 
-## Validation
-
-v0.1.9, released as Repo Preflight, was tested across:
-
-- Python 3.10;
-- Python 3.11;
-- Python 3.12;
-- Python 3.13;
-- Ubuntu CI;
-- Windows CI;
-- clean built-wheel installation;
-- CLI execution outside the source tree;
-- detached HEAD scenarios;
-- Git LFS scenarios;
-- Unicode/Windows terminal cases;
-- rename/copy edge cases;
-- large change sets.
-
-The v0.1.9 test suite contains **167 tests**.
-
-The release was also exercised with:
-
-- 10,000 changed files;
-- up to 1,000 Git LFS attribute paths.
-
-These checks are validation evidence, not a performance SLA.
+```bash
+python -m pytest -q
+```
 
 ---
 
-## Current scope and limitations
+## Current scope
 
-BranchRift is intentionally narrow.
-
-It currently does **not** provide:
+BranchRift intentionally does **not** provide:
 
 - AST-level semantic analysis;
-- language-server analysis;
 - dependency-graph reasoning;
 - automatic merge-conflict resolution;
 - guaranteed Git conflict prediction;
@@ -1027,19 +763,18 @@ The project prefers conservative facts over unsupported conclusions.
 
 ## Project status
 
-Current release: **0.2.0**
+Current release: **0.2.1**
 
-BranchRift is an early-stage developer tool.
+BranchRift is an early-stage developer tool focused on real-repository validation.
 
-The current focus is:
+Current priorities include:
 
-- real-repository validation;
 - false-positive reduction;
 - false-negative discovery;
-- integration-workflow feedback;
 - Git/LFS edge cases;
-- onboarding and packaging;
-- small-team workflows.
+- integration-workflow feedback;
+- Unreal/Git team validation;
+- onboarding and packaging.
 
 Feedback backed by a real repository or workflow problem is especially useful.
 
@@ -1047,27 +782,24 @@ Feedback backed by a real repository or workflow problem is especially useful.
 
 ## Feedback
 
-If you test BranchRift on a real repository, useful feedback includes:
+Useful questions when testing BranchRift:
 
 1. Were same-path collisions useful or noisy?
 2. Were binary-sensitive warnings actionable?
-3. Was ownership resolution correct?
-4. Did LFS readiness reflect the real repository state?
+3. Did ownership resolution match the real repository?
+4. Did Git LFS readiness reflect the actual checkout?
 5. Were required checks useful?
 6. Did the manual-review shortlist save time?
-7. Did the CLI fail on a valid Git workflow?
-8. What would prevent you from running it again?
+7. Did BranchRift fail on a valid Git workflow?
+8. What would stop you from running it again?
 
-Please do not publish:
+Please do not publish secrets, credentials, private repository contents, or sensitive company information.
 
-- secrets;
-- credentials;
-- private repository contents;
-- sensitive company information.
+General feedback:
+
+https://github.com/Kaan081/branchrift/issues
 
 Security-sensitive reports should follow [`SECURITY.md`](SECURITY.md).
-
-General feedback can be opened through [GitHub Issues](https://github.com/Kaan081/branchrift/issues).
 
 ---
 
@@ -1075,9 +807,9 @@ General feedback can be opened through [GitHub Issues](https://github.com/Kaan08
 
 Issues, tests, documentation improvements, focused rule changes, and small pull requests are welcome.
 
-Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting a larger change.
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before larger changes.
 
-Ideas backed by a real repository or workflow problem are preferred over speculative feature expansion.
+Ideas backed by real repository or workflow problems are preferred over speculative feature expansion.
 
 ---
 

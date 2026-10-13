@@ -21,6 +21,11 @@ def _report_with_topology(ff_eligible=True):
         "repository_state": "CLEAN",
         "technical_risk": "LOW",
         "governance_status": "PASS",
+        "governance": {
+            "evaluation_status": "evaluated",
+            "ownership_policy_status": "configured",
+            "issues": [],
+        },
         "summary": {
             "total_changes": 0,
             "high_count": 0,
@@ -31,6 +36,7 @@ def _report_with_topology(ff_eligible=True):
             "required_checks": [],
             "owners": [],
             "owner_counts": {},
+            "ownership_status_counts": {},
             "status_counts": {},
             "file_type_counts": {},
             "governance_issue_count": 0,
@@ -51,6 +57,7 @@ def _report_with_topology(ff_eligible=True):
 def test_print_report_includes_topology_section(capsys):
     print_report(_report_with_topology())
     output = capsys.readouterr().out
+
     assert "Analyzed:" in output
     assert f"{'a' * 40}" in output
     assert f"{'b' * 40}" in output
@@ -66,6 +73,7 @@ def test_print_json_report_uses_boolean_ff_eligible(capsys):
     print_json_report(_report_with_topology(ff_eligible=False))
     raw = capsys.readouterr().out
     payload = json.loads(raw)
+
     assert payload["topology"]["ff_eligible"] is False
     assert "YES" not in raw
     assert "NO" not in json.dumps(payload["topology"])
@@ -73,17 +81,22 @@ def test_print_json_report_uses_boolean_ff_eligible(capsys):
 
 def _report_with_collisions(files):
     report = _report_with_topology()
+
     report["collisions"] = {
         "count": len(files),
-        "binary_sensitive_count": sum(1 for item in files if item["binary_sensitive"]),
+        "binary_sensitive_count": sum(
+            1 for item in files if item["binary_sensitive"]
+        ),
         "files": files,
     }
+
     return report
 
 
 def test_print_report_zero_collisions(capsys):
     print_report(_report_with_collisions([]))
     output = capsys.readouterr().out
+
     assert "Integration:" in output
     assert "Same-path collisions: 0" in output
     assert "Binary-sensitive collisions: 0" in output
@@ -107,9 +120,28 @@ def test_print_report_nonzero_collisions(capsys):
             ]
         )
     )
+
     output = capsys.readouterr().out
+
     assert "Integration:" in output
     assert "Same-path collisions: 2" in output
     assert "Binary-sensitive collisions: 1" in output
     assert "Content/Maps/Test.umap [map, BINARY-SENSITIVE]" in output
     assert "src/app.py [source]" in output
+
+
+def test_print_report_shows_not_configured_governance(capsys):
+    report = _report_with_topology()
+
+    report["governance"] = {
+        "evaluation_status": "not_evaluated",
+        "ownership_policy_status": "not_configured",
+        "issues": [],
+    }
+
+    print_report(report)
+
+    output = capsys.readouterr().out
+
+    assert "Ownership policy: not configured" in output
+    assert "Evaluation: not evaluated" in output

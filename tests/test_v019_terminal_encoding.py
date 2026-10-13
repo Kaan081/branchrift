@@ -18,6 +18,7 @@ def _summary(**overrides):
         "total_changes": 1,
         "high_count": 0,
         "medium_count": 0,
+        "ownership_status_counts": {"known": 1},
         "low_count": 1,
         "manual_review_count": 1,
         "manual_review_files": ["src/app.py"],
@@ -40,6 +41,17 @@ def _report(*, path="src/app.py", fact_text=ASCII_FACT, message="owner missing",
         "repository_state": "CLEAN",
         "technical_risk": "LOW",
         "governance_status": "ATTENTION",
+        "governance": {
+        "evaluation_status": "evaluated",
+        "ownership_policy_status": "configured",
+        "issues": [
+        {
+            "path": path,
+            "code": "OWNERSHIP_GAP",
+            "message": message,
+        }
+    ],
+},
         "summary": _summary(manual_review_files=[path]),
         "changes": [
             {

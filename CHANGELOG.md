@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.1
+
+### Added
+
+- Zero-config analysis when `.preflight.json` is absent.
+- Repository-root discovery for the default `.preflight.json`, including runs started from nested directories.
+- Structured ownership policy states: `not_configured`, `configured_empty`, and `configured`.
+- Structured per-path ownership results: `known`, `not_configured`, and `no_match`.
+- Structured governance output with explicit evaluation status and ownership policy status.
+- Public report `schema_version` set to `1.0`.
+- Ownership status counts in report summaries.
+
+### Changed
+
+- Ownership configuration is now optional.
+- Missing ownership configuration no longer creates false `OWNERSHIP_GAP` findings, false governance escalation, or manual-review noise.
+- Governance decisions now use structured ownership state instead of the legacy `"Unknown"` owner sentinel.
+- Report serialization now converts internal ownership models at the public JSON boundary.
+- Terminal output explicitly reports when ownership governance was not evaluated.
+- Explicit `--config` paths remain strict: missing or invalid explicitly requested configuration still fails with a configuration error.
+
+### Compatibility
+
+- The legacy `owner` field and `governance_status` remain available for compatibility.
+- The legacy `preflight` command remains available in v0.2.1.
+
 ## 0.2.0
 
 - Renamed the public product from Repo Preflight to BranchRift.

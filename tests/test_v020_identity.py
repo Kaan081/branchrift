@@ -1,4 +1,4 @@
-"""v0.2.0 public identity: BranchRift distribution, CLI aliases, report heading."""
+"""v0.2.1 public identity: BranchRift distribution, CLI aliases, report heading."""
 
 import importlib
 from pathlib import Path
@@ -41,11 +41,17 @@ def _minimal_report():
         "repository_state": "CLEAN",
         "technical_risk": "LOW",
         "governance_status": "PASS",
+        "governance": {
+        "evaluation_status": "evaluated",
+        "ownership_policy_status": "configured",
+        "issues": [],
+},
         "summary": {
             "total_changes": 0,
             "high_count": 0,
             "medium_count": 0,
             "low_count": 0,
+            "ownership_status_counts": {},
             "manual_review_count": 0,
             "manual_review_files": [],
             "required_checks": [],
@@ -59,11 +65,11 @@ def _minimal_report():
     }
 
 
-def test_public_version_is_0_2_0():
-    assert __version__ == "0.2.0"
+def test_public_version_is_0_2_1():
+    assert __version__ == "0.2.1"
     text = PYPROJECT.read_text(encoding="utf-8")
     assert 'name = "branchrift"' in text
-    assert 'version = "0.2.0"' in text
+    assert 'version = "0.2.1"' in text
     assert "BranchRift" in text
 
 

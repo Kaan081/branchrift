@@ -146,18 +146,19 @@ def run(argv=None, cwd=None):
     )
 
     report = build_report(
-        branch,
-        args.base,
-        analyzed_changes,
-        config["governance"],
-        worktree_dirty=dirty,
-        head_revision=args.head,
-        topology=topology,
-        collisions=collisions,
-        change_facts=change_facts,
-        binary_readiness=binary_readiness,
-        revision_provenance=revision_provenance,
-    )
+    branch,
+    args.base,
+    analyzed_changes,
+    config["governance"],
+    worktree_dirty=dirty,
+    head_revision=args.head,
+    topology=topology,
+    collisions=collisions,
+    change_facts=change_facts,
+    binary_readiness=binary_readiness,
+    revision_provenance=revision_provenance,
+    ownership_policy_status=config["ownership_policy_status"],
+)
 
     if args.json:
         print_json_report(report)

@@ -1,6 +1,6 @@
 from preflight.ownership import OwnershipResult, OwnershipStatus
 from preflight.report import build_report, calculate_governance_status
-
+from preflight.config import OwnershipPolicyStatus
 
 GOVERNANCE = {
     "critical_escalation": True,
@@ -234,3 +234,42 @@ def test_build_report_includes_optional_provenance():
     assert report["base"] == "dev"
     assert report["head"] == "HEAD"
     assert report["technical_risk"] == "LOW"
+
+def test_structured_governance_reports_configured_policy():
+    changes = [
+        _change("src/app.py", owner="Backend"),
+    ]
+
+    report = build_report(
+        "feature/x",
+        "main",
+        changes,
+        GOVERNANCE,
+        False,
+        ownership_policy_status=OwnershipPolicyStatus.CONFIGURED,
+    )
+
+    assert report["schema_version"] == "1.0"
+    assert report["governance"] == {
+        "evaluation_status": "evaluated",
+        "ownership_policy_status": "configured",
+        "issues": [],
+    }
+
+
+def test_structured_governance_reports_missing_policy_as_not_evaluated():
+    report = build_report(
+        "feature/x",
+        "main",
+        [],
+        GOVERNANCE,
+        False,
+        ownership_policy_status=OwnershipPolicyStatus.NOT_CONFIGURED,
+    )
+
+    assert report["schema_version"] == "1.0"
+    assert report["governance"] == {
+        "evaluation_status": "not_evaluated",
+        "ownership_policy_status": "not_configured",
+        "issues": [],
+    }
