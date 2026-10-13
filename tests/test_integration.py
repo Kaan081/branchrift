@@ -282,3 +282,47 @@ def test_cli_explicit_missing_config_returns_2(tmp_path):
 
     assert result.returncode == 2
     assert "CONFIG ERROR:" in result.stderr
+
+def test_cli_discovers_default_config_from_repository_root(tmp_path):
+    repo, base_branch, _ = create_repo(tmp_path)
+
+    nested = repo / "src"
+
+    assert nested.is_dir()
+    assert (repo / ".preflight.json").exists()
+    assert not (nested / ".preflight.json").exists()
+
+    env = os.environ.copy()
+    src_path = str(
+        (__import__("pathlib").Path(__file__).parents[1] / "src").resolve()
+    )
+    env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "preflight",
+            "--base",
+            base_branch,
+            "--json",
+        ],
+        cwd=nested,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+
+    report = json.loads(result.stdout)
+
+    assert report["summary"]["total_changes"] == 2
+    assert report["summary"]["owner_counts"] == {
+        "Backend": 1,
+        "Platform": 1,
+    }
+    assert report["summary"]["ownership_status_counts"] == {
+        "known": 2,
+    }

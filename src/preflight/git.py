@@ -15,6 +15,7 @@ TIMEOUT_SECONDS = {
 
 OPERATION_TIMEOUT_CLASS = {
     "ensure_repository": "fast",
+    "repository_root": "fast",
     "rev_parse": "fast",
     "current_branch": "fast",
     "merge_base": "fast",
@@ -80,6 +81,17 @@ def ensure_git_repository(cwd=None):
     if value != "true":
         raise GitError("Current directory is not a Git repository")
 
+def get_repository_root(cwd=None):
+    root = run_git(
+        ["rev-parse", "--show-toplevel"],
+        cwd=cwd,
+        operation="repository_root",
+    ).strip()
+
+    if not root:
+        raise GitError("Git repository root could not be resolved")
+
+    return root
 
 DETACHED_BRANCH_LABEL = "DETACHED"
 

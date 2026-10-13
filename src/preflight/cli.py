@@ -15,6 +15,7 @@ from .git import (
     get_current_branch,
     get_diff_name_status,
     get_git_topology,
+    get_repository_root,
     get_unified_diff,
     get_worktree_status,
     parse_git_diff,
@@ -66,7 +67,8 @@ def resolve_config(config_arg, cwd=None):
 
         return load_config(config_path)
 
-    default_config_path = analysis_root / DEFAULT_CONFIG_NAME
+    repository_root = Path(get_repository_root(cwd=cwd))
+    default_config_path = repository_root / DEFAULT_CONFIG_NAME
 
     if default_config_path.exists():
         return load_config(default_config_path)
