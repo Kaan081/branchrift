@@ -20,6 +20,7 @@ from .git import (
     get_worktree_status,
     parse_git_diff,
     resolve_commit_sha,
+    run_git,
 )
 from .pipeline import build_change_context
 from .report import build_report, build_revision_provenance
@@ -35,8 +36,8 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--base",
-        default="dev",
-        help="Base branch/revision to compare against (default: dev)",
+        default=None,
+        help="Base branch/revision (default: local remote HEAD; use --base if unavailable)",
     )
     parser.add_argument(
         "--head",
@@ -76,6 +77,43 @@ def resolve_config(config_arg, cwd=None):
     return normalize_config({})
 
 
+def resolve_default_base(cwd=None):
+    """Return a locally recorded remote default, without network access.
+
+    origin wins when present; a sole non-origin remote is also supported.
+    A branch name without a remote HEAD is ambiguous, so we fail rather than guess.
+    """
+    remotes = run_git(["remote"], cwd=cwd, operation="rev_parse").splitlines()
+    if "origin" in remotes:
+        remote = "origin"
+    elif len(remotes) == 1:
+        remote = remotes[0]
+    else:
+        remote = None
+
+    if remote is not None:
+        try:
+            base = run_git(
+                ["symbolic-ref", "--quiet", "--short", f"refs/remotes/{remote}/HEAD"],
+                cwd=cwd,
+                operation="rev_parse",
+            ).strip()
+        except GitError:
+            base = ""
+        if base.startswith(f"{remote}/"):
+            try:
+                ensure_revision_exists(base, cwd=cwd)
+            except GitError:
+                pass
+            else:
+                return base
+
+    raise GitError(
+        "Could not determine a default base from the locally recorded remote HEAD. "
+        "Pass --base explicitly (for example: --base main)."
+    )
+
+
 def run(argv=None, cwd=None):
     args = parse_args(argv)
     config = resolve_config(args.config, cwd=cwd)
@@ -84,7 +122,8 @@ def run(argv=None, cwd=None):
     # Git diff/status paths are repository-relative, even from nested directories.
     # Keep explicit --config resolution caller-relative (handled above), then root all analysis.
     cwd = get_repository_root(cwd=cwd)
-    ensure_revision_exists(args.base, cwd=cwd)
+    base = args.base if args.base is not None else resolve_default_base(cwd=cwd)
+    ensure_revision_exists(base, cwd=cwd)
     ensure_revision_exists(args.head, cwd=cwd)
 
     branch = get_current_branch(cwd=cwd)
@@ -92,7 +131,7 @@ def run(argv=None, cwd=None):
     dirty = bool(worktree_status.strip())
 
     topology = get_git_topology(
-        args.base,
+        base,
         args.head,
         cwd=cwd,
     )
@@ -131,7 +170,7 @@ def run(argv=None, cwd=None):
         current_head_sha = resolve_commit_sha("HEAD", cwd=cwd)
 
     revision_provenance = build_revision_provenance(
-        args.base,
+        base,
         args.head,
         topology,
         current_head_sha=current_head_sha,
@@ -150,7 +189,7 @@ def run(argv=None, cwd=None):
 
     report = build_report(
     branch,
-    args.base,
+    base,
     analyzed_changes,
     config["governance"],
     worktree_dirty=dirty,
