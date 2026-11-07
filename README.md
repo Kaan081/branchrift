@@ -69,14 +69,19 @@ Or:
 pip install branchrift
 ```
 
-Then run inside a Git repository:
+Then run inside a Git repository with a locally recorded default remote HEAD:
 
 ```bash
-branchrift --base main
+branchrift
 ```
 
-`--base` defaults to `dev` for backwards compatibility. If your integration
-branch is `main`, supply `--base main` explicitly as shown above.
+With no `--base` argument, BranchRift selects the remote-tracking branch recorded
+by `origin/HEAD` (or by the only configured remote's HEAD). It does not contact
+GitHub or guess a branch name. If Git has no unambiguous local default, it
+reports an error instead of silently comparing against the wrong branch.
+
+Use `--base main`, `--base dev`, or another explicit revision to override this.
+This changes the previous no-argument default (`dev`); explicit usage is unchanged.
 
 No configuration file is required.
 
