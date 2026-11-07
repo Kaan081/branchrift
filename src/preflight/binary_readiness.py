@@ -41,7 +41,8 @@ def inspect_worktree_file(cwd, path):
 
     try:
         size = target.stat().st_size
-        prefix = target.read_bytes()[: LFS_POINTER_MAX_BYTES + 1]
+        with target.open("rb") as file:
+            prefix = file.read(LFS_POINTER_MAX_BYTES + 1)
     except OSError:
         return {"exists": True, "pointer": False, "readable": False}
 
@@ -56,6 +57,24 @@ def inspect_worktree_file(cwd, path):
 
 
 def parse_porcelain_paths(raw):
+    # -z format: XY SP path NUL [original-path NUL for renames/copies].
+    # Paths are unquoted and may contain Unicode, newlines, or " -> ".
+    if "\0" in raw:
+        states = {}
+        records = raw.split("\0")
+        index = 0
+        while index < len(records):
+            record = records[index]
+            index += 1
+            if len(record) < 4 or record[2] != " ":
+                continue
+            xy, path = record[:2], record[3:]
+            if "R" in xy or "C" in xy:
+                index += 1  # Skip the original path; porcelain -z lists new path first.
+            states[path] = xy
+        return states
+
+    # Accept older caller-provided line-oriented data for compatibility.
     states = {}
     for line in raw.splitlines():
         if not line:
@@ -106,6 +125,7 @@ def classify_binary_readiness(
     exists,
     is_pointer,
     worktree_matches_head,
+    readable=True,
     porcelain_xy=None,
     head_is_current_checkout=True,
 ):
@@ -127,6 +147,17 @@ def classify_binary_readiness(
             "lfs_state": lfs_state,
             "readiness": "ready",
             "reason": "intentionally deleted in the analyzed diff",
+        }
+
+    if exists and not readable:
+        return {
+            "lfs_managed": lfs_managed,
+            "working_tree_state": (
+                "modified" if porcelain_xy and "M" in porcelain_xy else "present"
+            ),
+            "lfs_state": "unknown",
+            "readiness": "attention",
+            "reason": "working-tree file exists but could not be read",
         }
 
     if exists and is_pointer:
@@ -253,6 +284,7 @@ def build_binary_readiness_report(
             lfs_managed=managed,
             exists=inspection["exists"],
             is_pointer=inspection["pointer"],
+            readable=inspection["readable"],
             worktree_matches_head=worktree_matches_head,
             porcelain_xy=porcelain_xy,
             head_is_current_checkout=head_is_current_checkout,

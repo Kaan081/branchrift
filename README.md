@@ -75,6 +75,9 @@ Then run inside a Git repository:
 branchrift --base main
 ```
 
+`--base` defaults to `dev` for backwards compatibility. If your integration
+branch is `main`, supply `--base main` explicitly as shown above.
+
 No configuration file is required.
 
 BranchRift can run in **zero-config mode** and still analyze:
