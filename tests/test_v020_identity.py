@@ -1,4 +1,4 @@
-"""v0.2.1 public identity: BranchRift distribution, CLI aliases, report heading."""
+"""Public identity: BranchRift distribution, CLI aliases, report heading."""
 
 import importlib
 from pathlib import Path
@@ -65,11 +65,11 @@ def _minimal_report():
     }
 
 
-def test_public_version_is_0_2_1():
-    assert __version__ == "0.2.1"
+def test_public_version_matches_package_metadata():
     text = PYPROJECT.read_text(encoding="utf-8")
     assert 'name = "branchrift"' in text
-    assert 'version = "0.2.1"' in text
+    project_section = text.split("[project]\n", 1)[1].split("\n[", 1)[0]
+    assert f'version = "{__version__}"' in project_section
     assert "BranchRift" in text
 
 
