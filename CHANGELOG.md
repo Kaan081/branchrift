@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0
+
+### Changed
+
+- **Behavior change:** without `--base`, infer the comparison base from the locally recorded `origin/HEAD` (or the sole configured remote's HEAD) instead of assuming `dev`. If that reference is unavailable or ambiguous, stop with an actionable error. Explicit `--base` retains its previous behavior.
+- Resolve repository-relative Git paths from the repository root, including analyses launched from nested directories.
+- Limit binary worktree inspection to the bytes needed for LFS pointer detection instead of reading whole assets into memory.
+- Parse Git attribute and porcelain status records in NUL-delimited form, including Unicode paths and renames.
+- Treat unreadable worktree binary files conservatively rather than claiming they are hydrated and ready.
+- Reject non-string ownership match types as configuration errors.
+
+### Compatibility
+
+- Users relying on the former implicit `dev` base must now pass `--base dev` explicitly.
+- No intentional public JSON schema version change; historical revision provenance and read-only analysis remain supported.
+- Both the `branchrift` and legacy `preflight` CLI commands remain available.
+
+### Verification
+
+- 195 local tests passed on Windows after the default-base changes.
+- PR #6 and PR #7 each passed 14/14 CI checks (Linux, Windows, and wheel smoke).
+- Four distinct public Git repositories passed read-only CLI acceptance checks, including a Git/LFS Unreal project.
+- A separate disposable Unreal-repository divergence test matched Git's independent same-path collision result (one binary-sensitive `.umap`; no false collision for a base-only `.uasset`).
+- These checks do not establish Unreal asset loadability, full Git LFS hydration, third-party adoption, or willingness to pay.
+
 ## 0.2.1
 
 ### Added

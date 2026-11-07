@@ -3,7 +3,6 @@
 https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7
 
 > See integration risk before branches come back together.
-> See integration risk before branches come back together.
 
 **BranchRift is a read-only Git CLI that surfaces branch divergence, same-path collisions, binary-sensitive changes, Git LFS readiness, ownership gaps, and review requirements before integration.**
 
@@ -18,7 +17,7 @@ BranchRift is advisory and read-only.
 
 It does **not** merge, checkout, pull, commit, delete, modify, or automatically approve repository changes.
 
-BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available in v0.2.1 for compatibility.
+BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available for compatibility.
 
 ---
 
