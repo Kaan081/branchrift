@@ -85,7 +85,7 @@ def test_optional_lfs_timeout_degrades_to_unknown(monkeypatch, tmp_path):
         if len(cmd) > 1 and cmd[1] == "lfs":
             raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
         if "check-attr" in cmd:
-            return _complete(cmd, stdout="Content/Thing.uasset: filter: lfs\n")
+            return _complete(cmd, stdout="Content/Thing.uasset\0filter\0lfs\0")
         return _complete(cmd)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -133,7 +133,7 @@ def test_check_attr_uses_revision_source(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         captured.append(cmd)
-        return _complete(cmd, stdout="Content/Thing.uasset: filter: lfs\n")
+        return _complete(cmd, stdout="Content/Thing.uasset\0filter\0lfs\0")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     source = "b" * 40
@@ -141,6 +141,7 @@ def test_check_attr_uses_revision_source(monkeypatch):
     assert values["Content/Thing.uasset"] == "lfs"
     assert f"--source={source}" in captured[0]
     assert captured[0][1] == "check-attr"
+    assert "-z" in captured[0]
 
 
 def test_revision_scoped_attr_timeout_does_not_fail_readiness(monkeypatch, tmp_path):

@@ -36,7 +36,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--base",
         default="dev",
-        help="Base branch/revision to compare against",
+        help="Base branch/revision to compare against (default: dev)",
     )
     parser.add_argument(
         "--head",
@@ -81,6 +81,9 @@ def run(argv=None, cwd=None):
     config = resolve_config(args.config, cwd=cwd)
 
     ensure_git_repository(cwd=cwd)
+    # Git diff/status paths are repository-relative, even from nested directories.
+    # Keep explicit --config resolution caller-relative (handled above), then root all analysis.
+    cwd = get_repository_root(cwd=cwd)
     ensure_revision_exists(args.base, cwd=cwd)
     ensure_revision_exists(args.head, cwd=cwd)
 

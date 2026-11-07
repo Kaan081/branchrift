@@ -94,7 +94,7 @@ def validate_ownership_rules(rules):
             raise ConfigError("Each ownership rule must be an object")
 
         match_type = rule.get("match", "prefix")
-        if match_type not in ALLOWED_MATCH_TYPES:
+        if not isinstance(match_type, str) or match_type not in ALLOWED_MATCH_TYPES:
             raise ConfigError(f"Unsupported ownership match type: {match_type}")
 
         if "path" not in rule:

@@ -257,7 +257,7 @@ def get_unified_diff(base_branch, head_revision="HEAD", cwd=None):
 def get_worktree_status(cwd=None):
     # Disable repo/user-configured fsmonitor hooks for read-only inspection.
     return run_git(
-        ["-c", "core.fsmonitor=false", "status", "--porcelain"],
+        ["-c", "core.fsmonitor=false", "status", "--porcelain", "-z"],
         cwd=cwd,
         operation="status",
     )
@@ -299,18 +299,19 @@ def get_check_attr(attribute, paths, cwd=None, source=None):
             args = ["check-attr"]
             if source is not None:
                 args.append(f"--source={source}")
-            args.extend([attribute, "--", *chunk])
+            args.extend(["-z", attribute, "--", *chunk])
             raw = run_git(args, cwd=cwd, operation="check_attr")
         except GitError:
             for path in chunk:
                 values[path] = None
             continue
-        marker = f": {attribute}: "
-        for line in raw.splitlines():
-            if marker not in line:
-                continue
-            path, value = line.rsplit(marker, 1)
-            values[path.replace("\\", "/")] = value.strip()
+        fields = raw.split("\0")
+        if fields and fields[-1] == "":
+            fields.pop()
+        for index in range(0, len(fields) - 2, 3):
+            path, returned_attribute, value = fields[index : index + 3]
+            if returned_attribute == attribute:
+                values[path] = value
     return values
 
 
