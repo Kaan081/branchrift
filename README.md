@@ -481,6 +481,47 @@ Governance:
 
 ---
 
+## Experimental Git merge simulation (source-only, opt-in)
+
+Git 2.38 or newer is required for this optional mode:
+
+```bash
+branchrift --base main --head feature/x --simulate-merge
+branchrift --base main --head feature/x --simulate-merge --verbose
+branchrift --base main --head feature/x --simulate-merge --json
+```
+
+Without `--simulate-merge`, BranchRift behaves as before and does **not** perform
+Git merge simulation. With the option, it uses the resolved base/head commit SHAs
+and `git merge-tree --write-tree --name-only -z --no-messages` to return a
+`merge_simulation` object in JSON. It does **not** create a merge commit or change
+branches, the index, or the working tree. Because `--write-tree` normally creates
+Git objects, BranchRift redirects object writes to a temporary object directory
+and deletes it after reporting. `result_tree_oid` is therefore an **ephemeral
+identifier** and is not guaranteed to be available later in the original repository.
+
+Possible results:
+
+- `CLEAN`: Git could merge the committed changes; **no build or tests were run**.
+- `CONFLICTS`: Git reported a real merge conflict (not merely same-path overlap).
+- `UNKNOWN`: the Git version or capability could not be confirmed.
+- `ERROR`: the simulation failed; no clean/conflict conclusion may be inferred.
+
+`conflicted_paths` lists Git's *unmerged-index* paths. Some conflict kinds are
+represented in Git's informational messages instead and may not have a path in
+this list; use `status`, not the list length, to decide whether Git found conflicts.
+This mode remains **advisory**, and the CLI exit code remains 0 on a completed
+analysis even if `merge_simulation.status` is `CONFLICTS`, `UNKNOWN`, or `ERROR`.
+CI users must inspect the structured status explicitly; no merge gate is provided.
+
+**Security boundary:** Git may honor configured external/custom merge drivers.
+Only opt in for repositories you trust. The feature does not run build tools or
+arbitrary commands from BranchRift config, but Git's own merge configuration
+may still execute external programs. Worktree/index isolation does not imply a
+sandbox for malicious merge drivers.
+
+---
+
 ## JSON output
 
 Use:

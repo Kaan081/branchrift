@@ -349,7 +349,16 @@ def print_compact_report(report):
             )
         else:
             print("Same-path overlap: NOT CHECKED")
-        print("Git merge conflict prediction: NOT CHECKED")
+        simulation = report.get("merge_simulation")
+        if simulation is None:
+            print("Git merge conflict prediction: NOT CHECKED")
+        else:
+            status = terminal_safe(simulation["status"])
+            count = simulation.get("conflicted_path_count", 0)
+            print(f"Git merge simulation: {status} "
+                  f"({count} unmerged paths; build/tests not run)")
+            if simulation.get("reason"):
+                print("Simulation reason: " + terminal_safe(simulation["reason"]))
         print(f"Change risk: {terminal_safe(report['technical_risk'])}")
         if report.get("repository_state") == "DIRTY":
             print("Worktree: DIRTY (uncommitted changes excluded)")
@@ -385,8 +394,8 @@ def print_compact_report(report):
             suffix = f"; +{remainder} more" if remainder else ""
             print("Required checks (not run): " + "; ".join(selected) + suffix)
 
-        # Collision paths first, then issues and readiness, then manual review.
-        ordered_paths = []
+        # Actual merge conflicts first, then overlap and review candidates.
+        ordered_paths = list((report.get("merge_simulation") or {}).get("conflicted_paths") or [])
         for item in collisions.get("files") or []:
             ordered_paths.append(item["path"])
         for item in governance.get("issues") or []:
@@ -406,6 +415,33 @@ def print_compact_report(report):
 
 
 
+
+
+def _print_merge_simulation(report):
+    simulation = report.get("merge_simulation")
+    if simulation is None:
+        return
+    print()
+    print("Git merge simulation (opt-in):")
+    print(f"  Git result: {terminal_safe(simulation['status'])}")
+    print("  Integration build/tests: NOT RUN")
+    print("  Conflict path scope: unmerged index entries (not exhaustive)")
+    print(f"  Base SHA: {terminal_safe(simulation['base_sha'])}")
+    print(f"  Head SHA: {terminal_safe(simulation['head_sha'])}")
+    tree = simulation.get("result_tree_oid")
+    if tree:
+        print(f"  Temporary result tree: {terminal_safe(tree)} (not retained)")
+    reason = simulation.get("reason")
+    if reason:
+        print(f"  Reason: {terminal_safe(reason)}")
+    paths = simulation.get("conflicted_paths") or []
+    if paths:
+        print(f"  Unmerged paths: {len(paths)}")
+        for path in paths[:MANUAL_REVIEW_TERMINAL_LIMIT]:
+            print(f"    - {terminal_safe(path)}")
+        if len(paths) > MANUAL_REVIEW_TERMINAL_LIMIT:
+            print(f"    ... {len(paths) - MANUAL_REVIEW_TERMINAL_LIMIT} more paths omitted")
+
 def print_report(report):
     with _terminal_stdout():
         print("=== BranchRift ===")
@@ -413,6 +449,7 @@ def print_report(report):
         _print_what_changed(report)
         _print_readiness(report)
         _print_integration(report)
+        _print_merge_simulation(report)
         _print_governance(report)
         _print_verification(report)
 
