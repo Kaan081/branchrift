@@ -11,7 +11,7 @@ Two branches touched the same `.umap`? Know before you integrate.
 [![PyPI](https://img.shields.io/pypi/v/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Python](https://img.shields.io/pypi/pyversions/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Tests](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml)
-[![License](https://img.shields.io/github/license/Kaan081/branchrift.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/kaanbartubozkurt/branchrift.svg)](LICENSE)
 
 BranchRift is advisory and read-only.
 
