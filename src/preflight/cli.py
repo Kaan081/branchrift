@@ -22,6 +22,7 @@ from .git import (
     resolve_commit_sha,
     run_git,
 )
+from .merge_simulation import simulate_merge
 from .pipeline import build_change_context
 from .report import build_report, build_revision_provenance
 from .reporter import print_compact_report, print_json_report, print_report
@@ -48,6 +49,11 @@ def parse_args(argv=None):
         "--config",
         default=None,
         help="Path to preflight config",
+    )
+    parser.add_argument(
+        "--simulate-merge",
+        action="store_true",
+        help="Opt-in Git merge simulation (Git >=2.38; no build/tests)",
     )
     output = parser.add_mutually_exclusive_group()
     output.add_argument(
@@ -207,6 +213,11 @@ def run(argv=None, cwd=None):
     revision_provenance=revision_provenance,
     ownership_policy_status=config["ownership_policy_status"],
 )
+
+    if args.simulate_merge:
+        report["merge_simulation"] = simulate_merge(
+            topology["base_sha"], topology["head_sha"], cwd=cwd,
+        )
 
     if args.json:
         print_json_report(report)
