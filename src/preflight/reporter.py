@@ -315,6 +315,89 @@ def _print_verification(report):
             print(f"    ... {omitted} more paths omitted")
 
 
+COMPACT_PATH_LIMIT = 3
+
+
+def print_compact_report(report):
+    """Bounded, advisory terminal summary. Never equate overlap with merge conflict.
+
+    This is a presentation-only layer: the report and JSON contracts are unchanged.
+    """
+    with _terminal_stdout():
+        summary = report["summary"]
+        topology = report.get("topology") or {}
+        collisions = report.get("collisions") or {}
+        readiness = report.get("binary_readiness") or {}
+        governance = report.get("governance") or {}
+        base = terminal_safe(report.get("base", "?"))
+        head = terminal_safe(report.get("head", "?"))
+
+        print(f"BranchRift | {base} <- {head}")
+        if topology:
+            print(
+                f"Topology: {terminal_safe(topology['relationship'])}"
+                f" | ahead {topology['ahead']} / behind {topology['behind']}"
+            )
+        print(
+            f"Changed: {summary['total_changes']} files"
+            f" | manual review: {summary['manual_review_count']}"
+        )
+        if collisions:
+            print(
+                f"Same-path overlap: {collisions['count']}"
+                f" | binary-sensitive: {collisions['binary_sensitive_count']}"
+            )
+        else:
+            print("Same-path overlap: NOT CHECKED")
+        print("Git merge conflict prediction: NOT CHECKED")
+        print(f"Change risk: {terminal_safe(report['technical_risk'])}")
+        if report.get("repository_state") == "DIRTY":
+            print("Worktree: DIRTY (uncommitted changes excluded)")
+
+        reasons = []
+        deletion_count = summary.get("status_counts", {}).get("D", 0)
+        if deletion_count:
+            reasons.append(f"{deletion_count} deleted paths")
+        if collisions.get("binary_sensitive_count", 0):
+            reasons.append(f"{collisions['binary_sensitive_count']} binary-sensitive overlaps")
+        elif collisions.get("count", 0):
+            reasons.append(f"{collisions['count']} same-path overlaps")
+        if readiness.get("attention_count", 0):
+            reasons.append(f"{readiness['attention_count']} LFS/readiness attention items")
+        if governance.get("issues"):
+            reasons.append(f"{len(governance['issues'])} governance issues")
+        if not reasons and report["technical_risk"] != "LOW":
+            types = summary.get("file_type_counts") or {}
+            noteworthy = [
+                f"{count} {terminal_safe(kind)} files"
+                for kind, count in sorted(types.items())
+                if count and kind in ("asset", "map", "source", "build_config")
+            ]
+            reasons.extend(noteworthy[:2])
+        if reasons:
+            print("Attention: " + "; ".join(reasons[:3]))
+
+        # Collision paths first, then issues and readiness, then manual review.
+        ordered_paths = []
+        for item in collisions.get("files") or []:
+            ordered_paths.append(item["path"])
+        for item in governance.get("issues") or []:
+            ordered_paths.append(item["path"])
+        for item in readiness.get("files") or []:
+            if item.get("readiness") == "attention":
+                ordered_paths.append(item["path"])
+        ordered_paths.extend(summary.get("manual_review_files") or [])
+        shown = list(dict.fromkeys(ordered_paths))
+        if shown:
+            print("Review paths:")
+            for path in shown[:COMPACT_PATH_LIMIT]:
+                print(f"  - {terminal_safe(path)}")
+            if len(shown) > COMPACT_PATH_LIMIT:
+                print(f"  ... {len(shown) - COMPACT_PATH_LIMIT} more")
+        print("Details: branchrift --verbose | Full data: branchrift --json")
+
+
+
 def print_report(report):
     with _terminal_stdout():
         print("=== BranchRift ===")
