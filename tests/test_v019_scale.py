@@ -5,6 +5,7 @@ timeouts or subprocess fan-out are approached.
 """
 
 import json
+import pytest
 import math
 import subprocess
 import sys
@@ -134,6 +135,7 @@ def _capture_report(render):
     return time.perf_counter() - started, stdout.getvalue()
 
 
+@pytest.mark.scale
 def test_change_set_scaling(tmp_path, monkeypatch):
     events = _spy(monkeypatch)
     rows = []
@@ -220,6 +222,7 @@ def _lfs_repo(tmp_path, count, name=None):
     return repo, sha, paths
 
 
+@pytest.mark.scale
 def test_check_attr_chunk_scaling(tmp_path, monkeypatch):
     events = _spy(monkeypatch)
     rows = []

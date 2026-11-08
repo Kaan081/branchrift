@@ -102,7 +102,14 @@ Analyze another fetched revision without checking it out:
 branchrift --base main --head origin/feature/environment-pass
 ```
 
-Produce JSON:
+By default, the terminal output is a compact summary. For the original
+detailed report, use:
+
+```bash
+branchrift --base main --verbose
+```
+
+For complete machine-readable output (unchanged schema), use:
 
 ```bash
 branchrift --base main --json
@@ -443,45 +450,28 @@ Governance remains advisory and does not automatically block the repository.
 
 ## Example terminal output
 
+By default, BranchRift prints a bounded, advisory summary:
+
 ```text
-=== BranchRift ===
-
-Analyzed:
-  Base: main
-  Head: HEAD
-  Current branch: feature/environment-pass
-  Repository state: CLEAN
-
-What changed:
-  14 files changed
-  Technical risk: MEDIUM
-  High risk: 0
-  Medium risk: 14
-  Low risk: 0
-
-Integration:
-  Topology: DIVERGED
-  Fast-forward eligible: no
-  Ahead: 7
-  Behind: 4
-  Same-path collisions: 2
-  Binary-sensitive collisions: 1
-    - Content/Maps/L_Main.umap [map, BINARY-SENSITIVE]
-    - Source/Game/Inventory.cpp [source]
-
-Governance:
-  PASS
-
-Required verification:
-  - build verification
-  - map integration verification
-
-  Manual review: 2 files
-    - Content/Maps/L_Main.umap
-    - Source/Game/Inventory.cpp
+BranchRift | main <- HEAD
+Topology: DIVERGED | ahead 7 / behind 4
+Changed: 14 files | manual review: 2
+Same-path overlap: 2 | binary-sensitive: 1
+Git merge conflict prediction: NOT CHECKED
+Change risk: MEDIUM
+Attention: 1 binary-sensitive overlaps
+Required checks (not run): build verification; map integration verification
+Review paths:
+  - Content/Maps/L_Main.umap
+  - Source/Game/Inventory.cpp
+Details: branchrift --verbose | Full data: branchrift --json
 ```
 
-Without ownership configuration, governance output is explicit:
+**Important:** Same-path overlap is not a confirmed Git merge conflict. The listed
+verification checks are recommendations; BranchRift has **not** run them.
+`--verbose` restores the full sectioned human-readable report.
+
+With `--verbose`, missing ownership configuration is shown explicitly:
 
 ```text
 Governance:
@@ -541,7 +531,7 @@ Structured governance makes evaluation state explicit:
 }
 ```
 
-The legacy `owner` field and `governance_status` remain available in v0.2.1 for compatibility.
+The legacy `owner` field and `governance_status` remain available for compatibility.
 
 JSON output contains the complete report even when interactive terminal sections are intentionally bounded.
 
@@ -646,9 +636,10 @@ Topology and comparison logic remain commit-based.
 
 ## Terminal output
 
-Large manual-review lists are bounded in interactive output.
-
-The full list remains available in JSON.
+The default CLI output is a short advisory summary with at most three review paths
+and up to three recommended checks. It never claims to have executed those checks.
+Use `--verbose` for the previous detailed report or `--json` for complete structured
+data (including full review lists).
 
 Repository and configuration-derived terminal text is escaped to avoid control-character injection.
 
@@ -675,7 +666,7 @@ A completed analysis still returns `0` when it discovers:
 - a dirty worktree;
 - manual-review requirements.
 
-BranchRift is advisory in v0.2.1.
+BranchRift remains advisory; reporting high risk does not change the exit status.
 
 ---
 
@@ -770,7 +761,9 @@ The project prefers conservative facts over unsupported conclusions.
 
 ## Project status
 
-Current release: **0.2.1**
+Published versions: [PyPI](https://pypi.org/project/branchrift/) and
+[GitHub Releases](https://github.com/kaanbartubozkurt/branchrift/releases).
+The source tree may contain changes not yet published.
 
 BranchRift is an early-stage developer tool focused on real-repository validation.
 

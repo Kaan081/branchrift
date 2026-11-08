@@ -24,7 +24,7 @@ from .git import (
 )
 from .pipeline import build_change_context
 from .report import build_report, build_revision_provenance
-from .reporter import print_json_report, print_report
+from .reporter import print_compact_report, print_json_report, print_report
 
 
 DEFAULT_CONFIG_NAME = ".preflight.json"
@@ -49,10 +49,16 @@ def parse_args(argv=None):
         default=None,
         help="Path to preflight config",
     )
-    parser.add_argument(
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument(
         "--json",
         action="store_true",
         help="Output machine-readable JSON",
+    )
+    output.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print full human-readable report (previous default)",
     )
     return parser.parse_args(argv)
 
@@ -204,8 +210,10 @@ def run(argv=None, cwd=None):
 
     if args.json:
         print_json_report(report)
-    else:
+    elif args.verbose:
         print_report(report)
+    else:
+        print_compact_report(report)
 
     return report
 
