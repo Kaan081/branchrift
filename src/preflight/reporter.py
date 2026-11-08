@@ -371,11 +371,19 @@ def print_compact_report(report):
             noteworthy = [
                 f"{count} {terminal_safe(kind)} files"
                 for kind, count in sorted(types.items())
-                if count and kind in ("asset", "map", "source", "build_config")
+                if count and kind in ("asset", "map", "build_config")
             ]
             reasons.extend(noteworthy[:2])
         if reasons:
             print("Attention: " + "; ".join(reasons[:3]))
+
+        # These are recommendations from the analyzer, NOT executed checks.
+        checks = summary.get("required_checks") or []
+        if checks:
+            selected = [terminal_safe(check) for check in checks[:3]]
+            remainder = len(checks) - len(selected)
+            suffix = f"; +{remainder} more" if remainder else ""
+            print("Required checks (not run): " + "; ".join(selected) + suffix)
 
         # Collision paths first, then issues and readiness, then manual review.
         ordered_paths = []

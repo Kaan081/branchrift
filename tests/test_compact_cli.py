@@ -85,3 +85,33 @@ def test_compact_without_optional_sections(capsys):
     output = capsys.readouterr().out
     assert "Same-path overlap: NOT CHECKED" in output
     assert "Git merge conflict prediction: NOT CHECKED" in output
+def test_compact_displays_required_checks_without_claiming_execution(capsys):
+    report = _report()
+    report["technical_risk"] = "MEDIUM"
+    report["summary"]["status_counts"] = {"M": 3}
+    report["summary"]["file_type_counts"] = {"source": 3}
+    report["summary"]["required_checks"] = ["build verification", "unit tests"]
+    print_compact_report(report)
+    output = capsys.readouterr().out
+    assert "Required checks (not run): build verification; unit tests" in output
+    assert "Attention: 3 source files" not in output
+    assert "Git merge conflict prediction: NOT CHECKED" in output
+
+
+def test_compact_verification_list_is_bounded_and_control_safe(capsys):
+    report = _report()
+    report["summary"]["required_checks"] = [
+        "build verification",
+        "verify\x1b[31m output",
+        "integration tests",
+        "manual approval",
+        "extended check",
+    ]
+    print_compact_report(report)
+    output = capsys.readouterr().out
+    assert "Required checks (not run):" in output
+    assert r"verify\x1b[31m output" in output
+    assert "verify\x1b[31m output" not in output
+    assert "; +2 more" in output
+    assert "manual approval" not in output
+    assert "extended check" not in output
