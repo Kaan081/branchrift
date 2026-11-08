@@ -10,7 +10,7 @@ Two branches touched the same `.umap`? Know before you integrate.
 
 [![PyPI](https://img.shields.io/pypi/v/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Python](https://img.shields.io/pypi/pyversions/branchrift.svg)](https://pypi.org/project/branchrift/)
-[![Tests](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/Kaan081/branchrift/actions/workflows/tests.yml)
+[![Tests](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/Kaan081/branchrift.svg)](LICENSE)
 
 BranchRift is advisory and read-only.
@@ -726,7 +726,7 @@ Git LFS is optional.
 Clone:
 
 ```bash
-git clone https://github.com/Kaan081/branchrift.git
+git clone https://github.com/kaanbartubozkurt/branchrift.git
 cd branchrift
 ```
 
@@ -804,7 +804,7 @@ Please do not publish secrets, credentials, private repository contents, or sens
 
 General feedback:
 
-https://github.com/Kaan081/branchrift/issues
+https://github.com/kaanbartubozkurt/branchrift/issues
 
 Security-sensitive reports should follow [`SECURITY.md`](SECURITY.md).
 

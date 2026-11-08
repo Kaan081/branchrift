@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-  {name = "Kaan081"}
+  {name = "Kaan Bartu Bozkurt"}
 ]
 dependencies = []
 keywords = [
@@ -56,7 +56,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [project.urls]
-Homepage = "https://github.com/Kaan081/branchrift"
-Repository = "https://github.com/Kaan081/branchrift"
-Issues = "https://github.com/Kaan081/branchrift/issues"
-Changelog = "https://github.com/Kaan081/branchrift/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/kaanbartubozkurt/branchrift"
+Repository = "https://github.com/kaanbartubozkurt/branchrift"
+Issues = "https://github.com/kaanbartubozkurt/branchrift/issues"
+Changelog = "https://github.com/kaanbartubozkurt/branchrift/blob/main/CHANGELOG.md"
