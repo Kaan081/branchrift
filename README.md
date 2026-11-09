@@ -13,9 +13,13 @@ Two branches touched the same `.umap`? Know before you integrate.
 [![Tests](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/kaanbartubozkurt/branchrift.svg)](LICENSE)
 
-BranchRift is advisory and read-only.
+By default, BranchRift is advisory and read-only. The experimental
+`--verify-pytest` option deliberately executes test code from the merged
+snapshot with your user permissions. This is NOT a security sandbox.
 
-It does **not** merge, checkout, pull, commit, delete, modify, or automatically approve repository changes.
+It does **not** merge, checkout, pull, commit, delete, modify, or approve changes
+in the original repository by itself; opted-in test code can still perform
+arbitrary side effects, so use only trusted repositories.
 
 BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available for compatibility.
 
@@ -672,6 +676,51 @@ DETACHED
 ```
 
 Topology and comparison logic remain commit-based.
+
+---
+
+## Experimental merged-tree pytest verification (v0.5 prototype)
+
+For **trusted repositories only**, explicitly request a merged-tree pytest run:
+
+```bash
+branchrift --base main --head feature/my-change --verify-pytest
+branchrift --base main --head feature/my-change --verify-pytest --json
+```
+
+`--verify-pytest` implies `--simulate-merge` and does **not** run by default.
+If Git reports `CLEAN`, BranchRift reconstructs the merged Git tree in a temporary
+folder using a temporary index and object store, runs the active Python
+interpreter's `python -m pytest -q -p no:cacheprovider` there, and removes the
+folder when finished. No `git checkout`, `git merge`, package installation,
+or commit is applied to the original working tree. Git LFS automatic smudge is
+skipped during export; existing Python dependencies are assumed installed.
+
+The JSON `merge_simulation.status` continues to mean **Git merge status**, not
+test status. With `--verify-pytest`, `merge_simulation.verification.status` adds:
+
+- `PASS`: pytest exited 0 on the merged snapshot; this only proves the tests that ran passed.
+- `FAIL`: pytest returned its normal test-failure exit code 1.
+- `NOT_RUN`: merge conflicts, no tests collected, unsupported tree entries
+  (symlinks/submodules), or tests skipped for another reason.
+- `ERROR`: checkout or pytest infrastructure/configuration failed.
+- `TIMEOUT`: test run exceeded the bounded time budget (currently 120 seconds).
+
+The report includes the base/head SHAs, temporary merge tree OID, test command,
+exit code, duration and bounded stdout/stderr tails. The result tree itself is
+not retained. `CLEAN + FAIL` is possible and is **not** a Git conflict. The CLI
+remains advisory and does not fail CI automatically when tests fail; inspect
+`merge_simulation.verification.status` in JSON for gating.
+
+**Security:** running pytest executes repository-supplied Python code with your
+user's normal permissions. This is **not a sandbox**, even though files are
+materialized into a temporary directory. Git checkout filters and custom merge
+drivers may also execute external programs. Do not use this option on untrusted
+repositories; use an externally isolated runner/CI for untrusted code.
+
+This first implementation is Python/pytest-only. It does not install dependencies,
+validate other build systems, prove test coverage, run an Unreal build, or verify
+runtime behavior outside the executed tests.
 
 ---
 

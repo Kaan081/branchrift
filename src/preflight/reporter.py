@@ -355,8 +355,15 @@ def print_compact_report(report):
         else:
             status = terminal_safe(simulation["status"])
             count = simulation.get("conflicted_path_count", 0)
+            verification = simulation.get("verification")
+            if verification is None:
+                check_note = "build/tests not run"
+            else:
+                check_note = "pytest " + terminal_safe(verification["status"]) + "; build not run"
             print(f"Git merge simulation: {status} "
-                  f"({count} unmerged paths; build/tests not run)")
+                  f"({count} unmerged paths; {check_note})")
+            if verification is not None and verification.get("reason"):
+                print("Verification reason: " + terminal_safe(verification["reason"]))
             if simulation.get("reason"):
                 print("Simulation reason: " + terminal_safe(simulation["reason"]))
         print(f"Change risk: {terminal_safe(report['technical_risk'])}")
@@ -424,7 +431,23 @@ def _print_merge_simulation(report):
     print()
     print("Git merge simulation (opt-in):")
     print(f"  Git result: {terminal_safe(simulation['status'])}")
-    print("  Integration build/tests: NOT RUN")
+    verification = simulation.get("verification")
+    if verification is None:
+        print("  Integration build/tests: NOT RUN")
+    else:
+        print("  Integration build: NOT RUN")
+        print("  Merged-tree pytest: " + terminal_safe(verification["status"]))
+        print("  Test runner invoked: " + _yes_no(verification["test_runner_invoked"]))
+        if verification.get("exit_code") is not None:
+            print("  Test exit code: " + terminal_safe(verification["exit_code"]))
+        if verification.get("duration_seconds") is not None:
+            print("  Test duration (s): " + terminal_safe(verification["duration_seconds"]))
+        if verification.get("reason"):
+            print("  Verification reason: " + terminal_safe(verification["reason"]))
+        for field in ("stdout_tail", "stderr_tail"):
+            if verification.get(field) and verification["status"] != "PASS":
+                print(f"  Pytest {field}: {terminal_safe(verification[field])}")
+        print("  Security sandbox: NO (trusted repositories only)")
     print("  Conflict path scope: unmerged index entries (not exhaustive)")
     print(f"  Base SHA: {terminal_safe(simulation['base_sha'])}")
     print(f"  Head SHA: {terminal_safe(simulation['head_sha'])}")

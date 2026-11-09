@@ -55,6 +55,11 @@ def parse_args(argv=None):
         action="store_true",
         help="Opt-in Git merge simulation (Git >=2.38; no build/tests)",
     )
+    parser.add_argument(
+        "--verify-pytest",
+        action="store_true",
+        help="Explicitly run pytest on a temporary CLEAN merged tree (trusted repos only)",
+    )
     output = parser.add_mutually_exclusive_group()
     output.add_argument(
         "--json",
@@ -214,9 +219,10 @@ def run(argv=None, cwd=None):
     ownership_policy_status=config["ownership_policy_status"],
 )
 
-    if args.simulate_merge:
+    if args.simulate_merge or args.verify_pytest:
         report["merge_simulation"] = simulate_merge(
             topology["base_sha"], topology["head_sha"], cwd=cwd,
+            verify_pytest=args.verify_pytest,
         )
 
     if args.json:
