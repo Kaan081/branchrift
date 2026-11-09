@@ -704,7 +704,7 @@ test status. With `--verify-pytest`, `merge_simulation.verification.status` adds
 - `NOT_RUN`: merge conflicts, no tests collected, unsupported tree entries
   (symlinks/submodules), or tests skipped for another reason.
 - `ERROR`: checkout or pytest infrastructure/configuration failed.
-- `TIMEOUT`: test run exceeded the bounded time budget (currently 120 seconds).
+- `TIMEOUT`: test run exceeded the bounded time budget (currently 300 seconds).
 
 The report includes the base/head SHAs, temporary merge tree OID, test command,
 exit code, duration and bounded stdout/stderr tails. The result tree itself is
@@ -721,6 +721,30 @@ repositories; use an externally isolated runner/CI for untrusted code.
 This first implementation is Python/pytest-only. It does not install dependencies,
 validate other build systems, prove test coverage, run an Unreal build, or verify
 runtime behavior outside the executed tests.
+
+---
+
+## Verification hardening (experimental)
+
+The opt-in pytest runner now drains output while retaining bounded stdout/stderr
+**tails in memory**, with `stdout_bytes_seen`, `stderr_bytes_seen` and explicit
+`stdout_truncated` / `stderr_truncated` evidence. This limits BranchRift's
+output capture, **not** the amount of output the test code could produce
+elsewhere.
+
+Pytest runs in a separate process group on POSIX. When its deadline is hit,
+BranchRift attempts to terminate that group. On Windows it attempts
+`taskkill /PID ... /T /F` and falls back to killing the immediate process.
+This is **best effort only**: a detached descendant may survive and have side
+effects. JSON records `process_tree_cleanup: attempted_not_guaranteed` on a
+timeout. A pytest process that exits but leaves output streams open yields
+`ERROR`, never `PASS`. The temporary merged checkout is **not a security sandbox**.
+
+The test command is unchanged (`python -m pytest -q -p no:cacheprovider`) and
+its normal timeout remains 300 seconds. Pytest still uses the active Python
+environment, disables autoloaded third-party plugins, and verifies only tests
+that actually execute. Build verification and arbitrary external commands are
+not part of this feature. No new dependencies are installed.
 
 ---
 

@@ -6,16 +6,21 @@ setup, or arbitrary command strings are performed by BranchRift.
 """
 
 import os
+import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 PYTEST_TIMEOUT_SECONDS = 300
 OUTPUT_TAIL_LIMIT = 3000
+OUTPUT_CAPTURE_BYTES = 16384  # bounded memory per stream
+OUTPUT_DRAIN_GRACE_SECONDS = 3
 
 
-def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", stderr=b"", invoked=False):
+def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", stderr=b"", invoked=False,
+              stdout_bytes=None, stderr_bytes=None, streams_complete=True, cleanup="not_needed"):
     result = {
         "status": status,
         "tool": "pytest",
@@ -24,6 +29,12 @@ def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", 
         "duration_seconds": round(elapsed, 3) if elapsed is not None else None,
         "stdout_tail": stdout.decode("utf-8", errors="replace")[-OUTPUT_TAIL_LIMIT:],
         "stderr_tail": stderr.decode("utf-8", errors="replace")[-OUTPUT_TAIL_LIMIT:],
+        "stdout_bytes_seen": stdout_bytes,
+        "stderr_bytes_seen": stderr_bytes,
+        "stdout_truncated": stdout_bytes is not None and stdout_bytes > len(stdout),
+        "stderr_truncated": stderr_bytes is not None and stderr_bytes > len(stderr),
+        "output_streams_complete": streams_complete,
+        "process_tree_cleanup": cleanup,
         "test_runner_invoked": invoked,
         "temporary_checkout_retained": False,
         "security_sandbox": False,
@@ -32,6 +43,91 @@ def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", 
     if reason:
         result["reason"] = reason
     return result
+
+
+class _Tail:
+    """Drain stdout/stderr continuously while retaining only bounded bytes."""
+
+    def __init__(self):
+        self.total = 0
+        self.data = b""
+        self.error = False
+
+    def drain(self, stream):
+        try:
+            while True:
+                part = stream.read(65536)
+                if not part:
+                    break
+                self.total += len(part)
+                self.data = (self.data + part)[-OUTPUT_CAPTURE_BYTES:]
+        except OSError:
+            self.error = True
+        finally:
+            stream.close()
+
+
+def _terminate_group(proc):
+    """Best-effort tree termination; NOT a sandbox or guaranteed cleanup."""
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=5, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            pass
+    if proc.poll() is None:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _run_bounded(args, *, cwd, env, timeout):
+    """No unbounded PIPE capture; timeout targets the process group/tree."""
+    proc = subprocess.Popen(
+        args, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        start_new_session=(os.name != "nt"),
+        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
+    )
+    stdout = _Tail()
+    stderr = _Tail()
+    readers = [
+        threading.Thread(target=stdout.drain, args=(proc.stdout,), daemon=True),
+        threading.Thread(target=stderr.drain, args=(proc.stderr,), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    timed_out = False
+    cleanup = "not_needed"
+    try:
+        returncode = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        cleanup = "attempted_not_guaranteed"
+        _terminate_group(proc)
+        returncode = proc.poll()
+    for reader in readers:
+        reader.join(timeout=OUTPUT_DRAIN_GRACE_SECONDS)
+    streams_complete = not any(reader.is_alive() for reader in readers) and not stdout.error and not stderr.error
+    return {
+        "returncode": returncode, "timed_out": timed_out,
+        "stdout": stdout.data, "stderr": stderr.data,
+        "stdout_bytes": stdout.total, "stderr_bytes": stderr.total,
+        "streams_complete": streams_complete, "cleanup": cleanup,
+    }
 
 
 def verify_merged_tree(tree_oid, *, cwd, git_env, temp_root, git_call, timeout=PYTEST_TIMEOUT_SECONDS):
@@ -84,35 +180,40 @@ def verify_merged_tree(tree_oid, *, cwd, git_env, temp_root, git_call, timeout=P
     args = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
     started = time.perf_counter()
     try:
-        result = subprocess.run(
-            args, cwd=destination, env=test_env,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=timeout, check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return _evidence("TIMEOUT", reason="Pytest exceeded time budget; results are incomplete",
-                         elapsed=time.perf_counter()-started,
-                         stdout=exc.stdout or b"", stderr=exc.stderr or b"", invoked=True)
+        result = _run_bounded(args, cwd=destination, env=test_env, timeout=timeout)
     except OSError as exc:
         return _evidence("ERROR", reason="Test runner failed to start: " + type(exc).__name__)
 
     elapsed = time.perf_counter() - started
-    err_text = result.stderr.decode("utf-8", errors="replace")
+    details = {
+        "exit_code": result["returncode"], "elapsed": elapsed,
+        "stdout": result["stdout"], "stderr": result["stderr"],
+        "stdout_bytes": result["stdout_bytes"],
+        "stderr_bytes": result["stderr_bytes"],
+        "streams_complete": result["streams_complete"],
+        "cleanup": result["cleanup"], "invoked": True,
+    }
+    if result["timed_out"]:
+        return _evidence("TIMEOUT",
+                         reason="Pytest exceeded time budget; descendant cleanup attempted, not guaranteed",
+                         **details)
+    if not result["streams_complete"]:
+        return _evidence("ERROR",
+                         reason="Test output streams did not close; possibly surviving child processes",
+                         **details)
+    err_text = result["stderr"].decode("utf-8", errors="replace")
     if "No module named pytest" in err_text:
         return _evidence("NOT_RUN", reason="pytest is not installed in the active Python interpreter",
-                         exit_code=result.returncode, elapsed=elapsed,
-                         stdout=result.stdout, stderr=result.stderr, invoked=True)
-    if result.returncode == 0:
+                         **details)
+    if result["returncode"] == 0:
         status = "PASS"
-    elif result.returncode == 1:
+    elif result["returncode"] == 1:
         status = "FAIL"
-    elif result.returncode == 5:
+    elif result["returncode"] == 5:
         status = "NOT_RUN"
     else:
         status = "ERROR"
-    reason = "No tests collected" if result.returncode == 5 else None
+    reason = "No tests collected" if result["returncode"] == 5 else None
     if status == "ERROR":
         reason = "Pytest infrastructure or configuration error"
-    return _evidence(status, reason=reason, exit_code=result.returncode,
-                     elapsed=elapsed, stdout=result.stdout, stderr=result.stderr,
-                     invoked=True)
+    return _evidence(status, reason=reason, **details)

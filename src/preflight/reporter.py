@@ -444,6 +444,14 @@ def _print_merge_simulation(report):
             print("  Test duration (s): " + terminal_safe(verification["duration_seconds"]))
         if verification.get("reason"):
             print("  Verification reason: " + terminal_safe(verification["reason"]))
+        for stream in ("stdout", "stderr"):
+            if verification.get(stream + "_truncated"):
+                print("  Pytest " + stream + " output: truncated tail (" +
+                      terminal_safe(verification.get(stream + "_bytes_seen")) + " bytes seen)")
+        if verification.get("process_tree_cleanup") == "attempted_not_guaranteed":
+            print("  Timeout process cleanup: ATTEMPTED, NOT GUARANTEED")
+        if verification.get("output_streams_complete") is False:
+            print("  Pytest output streams: INCOMPLETE (result not trusted)")
         for field in ("stdout_tail", "stderr_tail"):
             if verification.get(field) and verification["status"] != "PASS":
                 print(f"  Pytest {field}: {terminal_safe(verification[field])}")
