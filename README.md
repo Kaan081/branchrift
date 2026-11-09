@@ -770,6 +770,26 @@ This is still trusted-repository-only execution, **not** a sandbox.
 
 ---
 
+## Merged-source import precedence (v0.5.3)
+
+For opt-in merged-tree pytest runs, BranchRift puts the **temporary merged
+checkout's** `src/` directory (when present) ahead of its repository root on
+the child Python process's `PYTHONPATH`. For flat-layout projects, only the
+merged checkout root is used. The caller's `PYTHONPATH` stays excluded.
+This prevents common `src/` packages from accidentally resolving to another
+editable/site-installed checkout merely because the temporary checkout wasn't
+on Python's import path. No package installation or dependency resolution occurs.
+
+JSON records `verification.source_import_precedence` as `merged_src_then_root`,
+`merged_root`, or `not_run`. This is a **path precedence declaration**, not proof
+that every imported dependency/module came from the intended snapshot: custom
+import hooks, unusual layouts and test code may override normal import behavior.
+Only tests actually exercised are covered. For trustworthy project acceptance,
+check test collection, skip reasons, and the applicable dependency environment.
+Previous v0.5.2 `PASS` reports for `src/` layout projects need revalidation.
+
+---
+
 ## Terminal output
 
 The default CLI output is a short advisory summary with at most three review paths

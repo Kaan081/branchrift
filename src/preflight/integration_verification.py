@@ -33,7 +33,8 @@ def _installed_pytest_version():
 
 def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", stderr=b"", invoked=False,
               stdout_bytes=None, stderr_bytes=None, streams_complete=True, cleanup="not_needed",
-              stdout_sha256=None, stderr_sha256=None):
+              stdout_sha256=None, stderr_sha256=None,
+              source_import_precedence="not_run"):
     result = {
         "status": status,
         "tool": "pytest",
@@ -64,6 +65,7 @@ def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", 
         "temporary_checkout_retained": False,
         "security_sandbox": False,
         "dependency_environment": "existing Python interpreter; no install",
+        "source_import_precedence": source_import_precedence,
     }
     if reason:
         result["reason"] = reason
@@ -206,6 +208,16 @@ def verify_merged_tree(tree_oid, *, cwd, git_env, temp_root, git_call, timeout=P
             test_env.pop(key, None)
     test_env["PYTHONDONTWRITEBYTECODE"] = "1"
     test_env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    # The pytest process must import this *merged* project, not an unrelated
+    # editable installation in the active interpreter. Restrict inherited paths,
+    # then give the merged checkout precedence for common Python layouts.
+    merged_src = destination / "src"
+    if merged_src.is_dir():
+        test_env["PYTHONPATH"] = os.pathsep.join((str(merged_src.resolve()), str(destination.resolve())))
+        source_import_precedence = "merged_src_then_root"
+    else:
+        test_env["PYTHONPATH"] = str(destination.resolve())
+        source_import_precedence = "merged_root"
     args = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
     started = time.perf_counter()
     try:
@@ -223,6 +235,7 @@ def verify_merged_tree(tree_oid, *, cwd, git_env, temp_root, git_call, timeout=P
         "stderr_sha256": result["stderr_sha256"],
         "streams_complete": result["streams_complete"],
         "cleanup": result["cleanup"], "invoked": True,
+        "source_import_precedence": source_import_precedence,
     }
     if result["timed_out"]:
         return _evidence("TIMEOUT",
