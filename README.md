@@ -707,7 +707,13 @@ test status. With `--verify-pytest`, `merge_simulation.verification.status` adds
 - `TIMEOUT`: test run exceeded the bounded time budget (currently 300 seconds).
 
 The report includes the base/head SHAs, temporary merge tree OID, test command,
-exit code, duration and bounded stdout/stderr tails. The result tree itself is
+exit code, duration and bounded stdout/stderr tails. v0.5.2 adds recorded UTC
+time, interpreter version/implementation, installed pytest distribution version,
+OS details, and SHA-256 fingerprints of **all output bytes observed** by the
+capture threads (not merely the retained tails). Full stream lengths, truncation
+flags and completeness status remain explicit. For `--verify-pytest`, the nested
+`verification.provenance` binds the base/head SHAs and temporary merged tree OID;
+`NOT_RUN` evidence is never evidence of an executed test. The result tree itself is
 not retained. `CLEAN + FAIL` is possible and is **not** a Git conflict. The CLI
 remains advisory and does not fail CI automatically when tests fail; inspect
 `merge_simulation.verification.status` in JSON for gating.
@@ -745,6 +751,22 @@ its normal timeout remains 300 seconds. Pytest still uses the active Python
 environment, disables autoloaded third-party plugins, and verifies only tests
 that actually execute. Build verification and arbitrary external commands are
 not part of this feature. No new dependencies are installed.
+
+## Evidence integrity (v0.5.2)
+
+Pytest stdout/stderr SHA-256 digests are computed incrementally over the bytes
+actually read from each stream. A digest plus observed byte count can help detect
+changed or incomplete output when comparing saved reports, but **is not a digital
+signature** and does not prove that tests were correct or code was safe. If output
+streams are incomplete, pytest verification is `ERROR`, not `PASS`, and the
+hash describes only observed bytes. `stdout_tail`/`stderr_tail` may contain
+repository-supplied sensitive values: review before sharing reports publicly.
+
+Platform and pytest package metadata describe the local interpreter at execution
+time, not a hermetic environment. The report explicitly states
+`dependency_lock_verified: false` and `environment_reproducible: false`. No
+reproduction guarantee, package dependency hashing, or build verification exists.
+This is still trusted-repository-only execution, **not** a sandbox.
 
 ---
 
