@@ -87,7 +87,16 @@ def simulate_merge(
             kwargs["verification"] = _evidence(
                 "NOT_RUN", reason="Merge did not produce a verified clean tree"
             )
-        return _outcome(*args, **kwargs)
+        outcome = _outcome(*args, **kwargs)
+        if verify_pytest:
+            # Bind test evidence to the *requested* commits and ephemeral merge tree.
+            # A NOT_RUN record is provenance, not proof that code was executed.
+            outcome["verification"]["provenance"] = {
+                "base_sha": base_sha,
+                "head_sha": head_sha,
+                "merged_tree_oid": outcome["result_tree_oid"],
+            }
+        return outcome
 
     if not isinstance(base_sha, str) or not _SHA_PATTERN.fullmatch(base_sha):
         return finish("ERROR", base_sha, head_sha, reason="Invalid base commit SHA")

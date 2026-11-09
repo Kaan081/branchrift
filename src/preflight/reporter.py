@@ -442,6 +442,23 @@ def _print_merge_simulation(report):
             print("  Test exit code: " + terminal_safe(verification["exit_code"]))
         if verification.get("duration_seconds") is not None:
             print("  Test duration (s): " + terminal_safe(verification["duration_seconds"]))
+        if verification.get("recorded_at_utc"):
+            print("  Evidence recorded (UTC): " + terminal_safe(verification["recorded_at_utc"]))
+        python_version = verification.get("python_version")
+        pytest_version = verification.get("pytest_version")
+        if python_version:
+            print("  Python version: " + terminal_safe(python_version))
+        if pytest_version:
+            print("  Installed pytest distribution: " + terminal_safe(pytest_version))
+        elif verification.get("test_runner_invoked"):
+            print("  Installed pytest distribution: UNKNOWN")
+        if verification.get("os_name"):
+            print("  OS: " + terminal_safe(verification["os_name"]))
+        if verification.get("stdout_sha256"):
+            print("  Pytest stdout SHA256 (observed bytes): " + terminal_safe(verification["stdout_sha256"]))
+        if verification.get("stderr_sha256"):
+            print("  Pytest stderr SHA256 (observed bytes): " + terminal_safe(verification["stderr_sha256"]))
+        print("  Dependency lock verified: NO; reproducible environment: NOT PROVEN")
         if verification.get("reason"):
             print("  Verification reason: " + terminal_safe(verification["reason"]))
         for stream in ("stdout", "stderr"):

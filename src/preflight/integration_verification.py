@@ -5,12 +5,16 @@ repositories only. No installation, shell, checkout into original repo, network
 setup, or arbitrary command strings are performed by BranchRift.
 """
 
+import hashlib
+import importlib.metadata
 import os
+import platform
 import signal
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 PYTEST_TIMEOUT_SECONDS = 300
@@ -19,8 +23,17 @@ OUTPUT_CAPTURE_BYTES = 16384  # bounded memory per stream
 OUTPUT_DRAIN_GRACE_SECONDS = 3
 
 
+def _installed_pytest_version():
+    """Installed distribution version in the current interpreter; not a lockfile proof."""
+    try:
+        return importlib.metadata.version("pytest")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
 def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", stderr=b"", invoked=False,
-              stdout_bytes=None, stderr_bytes=None, streams_complete=True, cleanup="not_needed"):
+              stdout_bytes=None, stderr_bytes=None, streams_complete=True, cleanup="not_needed",
+              stdout_sha256=None, stderr_sha256=None):
     result = {
         "status": status,
         "tool": "pytest",
@@ -29,6 +42,18 @@ def _evidence(status, *, reason=None, exit_code=None, elapsed=None, stdout=b"", 
         "duration_seconds": round(elapsed, 3) if elapsed is not None else None,
         "stdout_tail": stdout.decode("utf-8", errors="replace")[-OUTPUT_TAIL_LIMIT:],
         "stderr_tail": stderr.decode("utf-8", errors="replace")[-OUTPUT_TAIL_LIMIT:],
+        "stdout_sha256": stdout_sha256,
+        "stderr_sha256": stderr_sha256,
+        "output_hash_scope": "observed_stream_bytes",
+        "recorded_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "pytest_version": _installed_pytest_version(),
+        "os_name": platform.system(),
+        "os_release": platform.release(),
+        "platform_machine": platform.machine(),
+        "dependency_lock_verified": False,
+        "environment_reproducible": False,
         "stdout_bytes_seen": stdout_bytes,
         "stderr_bytes_seen": stderr_bytes,
         "stdout_truncated": stdout_bytes is not None and stdout_bytes > len(stdout),
@@ -50,6 +75,7 @@ class _Tail:
 
     def __init__(self):
         self.total = 0
+        self.digest = hashlib.sha256()
         self.data = b""
         self.error = False
 
@@ -60,6 +86,7 @@ class _Tail:
                 if not part:
                     break
                 self.total += len(part)
+                self.digest.update(part)
                 self.data = (self.data + part)[-OUTPUT_CAPTURE_BYTES:]
         except OSError:
             self.error = True
@@ -126,6 +153,8 @@ def _run_bounded(args, *, cwd, env, timeout):
         "returncode": returncode, "timed_out": timed_out,
         "stdout": stdout.data, "stderr": stderr.data,
         "stdout_bytes": stdout.total, "stderr_bytes": stderr.total,
+        "stdout_sha256": stdout.digest.hexdigest(),
+        "stderr_sha256": stderr.digest.hexdigest(),
         "streams_complete": streams_complete, "cleanup": cleanup,
     }
 
@@ -190,6 +219,8 @@ def verify_merged_tree(tree_oid, *, cwd, git_env, temp_root, git_call, timeout=P
         "stdout": result["stdout"], "stderr": result["stderr"],
         "stdout_bytes": result["stdout_bytes"],
         "stderr_bytes": result["stderr_bytes"],
+        "stdout_sha256": result["stdout_sha256"],
+        "stderr_sha256": result["stderr_sha256"],
         "streams_complete": result["streams_complete"],
         "cleanup": result["cleanup"], "invoked": True,
     }
