@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- Explicit, opt-in Git merge simulation (`--simulate-merge`) using an ephemeral object store; reports `CLEAN`, `CONFLICTS`, `UNKNOWN` or `ERROR` separately from advisory same-path overlaps. Git >=2.38 required.
+- Experimental, opt-in merged-tree pytest verification (`--verify-pytest`) for **trusted** Python repositories. Reports test outcome separately from Git merge outcome and binds evidence to commit and merged-tree IDs.
+- Bounded test stdout/stderr capture, metadata, output digests and source-import precedence for normal `src/`-layout projects; source paths are prioritized without claiming hermetic package provenance.
+
+### Changed
+
+- Clearer README first-run instructions and a separate explanation of the merge/test safety boundary.
+- Package distribution version and import-time `preflight.__version__` now both report `0.4.0`.
+
+### Validation / limitations
+
+- 241 local regression tests passed following the source-import fix; PR #14 passed 14/14 pre-merge checks, and `main` passed 7/7 post-merge checks.
+- On a controlled Reprovant integration test, independently green branches produced a Git CLEAN merge with failing combined pytest; the independent Git tree OID and test result agreed with BranchRift. This was a **controlled injection**, not an organically discovered production bug.
+- For an external public pytest-impacted PR #109, same-path overlaps were identified and BranchRift's Git CLEAN merged-tree OID matched an independent Git merge. **Pytest was not run** on this untrusted external code; no regression claim follows.
+- No independent user adoption, paid demand, or human-time savings has yet been established.
+- The CLI remains advisory and does not provide a security sandbox, automatic CI gate, environment/dependency reproducibility, Unreal build validation, or general language test execution. Git merge drivers and opted-in tests may execute code with local permissions.
+
 ## 0.3.0
 
 ### Changed
