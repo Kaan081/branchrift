@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+
+- Treat `---` and `+++` content lines inside unified-diff hunks as changed content, not file headers, so change facts retain their correct file path and line numbers (#17).
+- Force stable source and destination diff prefixes regardless of user Git `diff.noprefix` and `diff.mnemonicPrefix` settings, preserving path attribution (#18).
+- Show `unknown` binary-readiness counts in the default compact report and prioritize binary-sensitive overlap paths after actual Git conflict paths (#19).
+
+### Compatibility and scope
+
+- No intentional changes to CLI options, exit codes, JSON structure, merge simulation, or optional pytest-verification behavior.
+- This is a maintenance-only release; no new features are introduced.
+
 ## 0.4.0
 
 ### Added
