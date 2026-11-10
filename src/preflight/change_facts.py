@@ -168,14 +168,14 @@ def parse_unified_diff(raw):
             if " and " in rest:
                 current["path"] = _parse_diff_path(rest.split(" and ", 1)[1])
             continue
-        if line.startswith("--- "):
+        if hunk is None and line.startswith("--- "):
             if current is None:
                 current = {"path": None, "binary": False, "hunks": []}
             parsed = _parse_diff_path(line[4:])
             if parsed is not None:
                 current["path"] = parsed
             continue
-        if line.startswith("+++ "):
+        if hunk is None and line.startswith("+++ "):
             if current is None:
                 current = {"path": None, "binary": False, "hunks": []}
             parsed = _parse_diff_path(line[4:])

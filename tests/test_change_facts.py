@@ -40,6 +40,45 @@ def facts_for(path, body, file_types=None, **kwargs):
     return report["files"][0]["facts"]
 
 
+def test_hunk_content_looks_like_old_file_header():
+    # Git represents a removed SQL comment `-- before` as `--- before`.
+    diff = unified_diff(
+        "query.sql",
+        "--- before\n-SELECT 1;\n+-- after\n+SELECT 2;\n",
+        old_line=1,
+        new_line=1,
+    )
+    report = build_change_facts_report(diff, {"query.sql": "other"})
+    assert report["count"] == 4
+    assert report["files"] == [
+        {
+            "path": "query.sql",
+            "facts": [
+                {"kind": "line_removed", "text": "-- before", "old_line": 1},
+                {"kind": "line_removed", "text": "SELECT 1;", "old_line": 2},
+                {"kind": "line_added", "text": "-- after", "new_line": 1},
+                {"kind": "line_added", "text": "SELECT 2;", "new_line": 2},
+            ],
+        }
+    ]
+
+
+def test_hunk_content_looks_like_new_file_header():
+    # Git represents an added line `++ after` as `+++ after`.
+    diff = unified_diff("notes.txt", "-old\n+++ after\n", old_line=7, new_line=7)
+    report = build_change_facts_report(diff, {"notes.txt": "other"})
+    assert report["count"] == 2
+    assert report["files"] == [
+        {
+            "path": "notes.txt",
+            "facts": [
+                {"kind": "line_removed", "text": "old", "old_line": 7},
+                {"kind": "line_added", "text": "++ after", "new_line": 7},
+            ],
+        }
+    ]
+
+
 def test_numeric_assignment_change():
     facts = facts_for(
         "HPDPrototypeCharacter.cpp",
