@@ -406,3 +406,51 @@ def test_cli_json_includes_change_facts_without_breaking_existing_schema(tmp_pat
     )
     assert catch["before"] == "140.0f"
     assert catch["after"] == "120.0f"
+
+
+def test_unified_diff_paths_ignore_user_prefix_config(tmp_path):
+    """a/ is a real path component, not a prefix to discard.
+
+    Git user settings must not change change-fact attribution.
+    """
+    from preflight.git import get_unified_diff
+
+    repo = tmp_path / "prefix-config-repo"
+    repo.mkdir()
+    git(repo, "init")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "config", "user.name", "Diff Prefix Fixture")
+    src = repo / "a"
+    src.mkdir()
+    target = src / "main.py"
+    target.write_text("count = 1\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "base")
+    base_sha = git(repo, "rev-parse", "HEAD").stdout.strip()
+    target.write_text("count = 2\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "head")
+
+    for noprefix, mnemonic in (("true", "false"), ("false", "true"), ("true", "true")):
+        git(repo, "config", "diff.noprefix", noprefix)
+        git(repo, "config", "diff.mnemonicPrefix", mnemonic)
+        raw_diff = get_unified_diff(base_sha, "HEAD", cwd=repo)
+        assert "--- a/a/main.py" in raw_diff
+        assert "+++ b/a/main.py" in raw_diff
+        facts = build_change_facts_report(raw_diff, {"a/main.py": "source"})
+        assert facts["count"] == 1
+        assert facts["files"] == [
+            {
+                "path": "a/main.py",
+                "facts": [
+                    {
+                        "kind": "value_changed",
+                        "key": "count",
+                        "before": "1",
+                        "after": "2",
+                        "old_line": 1,
+                        "new_line": 1,
+                    }
+                ],
+            }
+        ]
