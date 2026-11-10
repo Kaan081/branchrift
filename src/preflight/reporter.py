@@ -367,6 +367,13 @@ def print_compact_report(report):
             if simulation.get("reason"):
                 print("Simulation reason: " + terminal_safe(simulation["reason"]))
         print(f"Change risk: {terminal_safe(report['technical_risk'])}")
+        # UNKNOWN means hydration was not assessed, not that the file is ready.
+        unknown_count = sum(
+            item.get("readiness") == "unknown"
+            for item in readiness.get("files") or []
+        )
+        if unknown_count:
+            print(f"Readiness: {unknown_count} unknown (not verified)")
         if report.get("repository_state") == "DIRTY":
             print("Worktree: DIRTY (uncommitted changes excluded)")
 
@@ -403,7 +410,11 @@ def print_compact_report(report):
 
         # Actual merge conflicts first, then overlap and review candidates.
         ordered_paths = list((report.get("merge_simulation") or {}).get("conflicted_paths") or [])
-        for item in collisions.get("files") or []:
+        # After actual Git conflicts, show binary-sensitive overlaps first.
+        for item in sorted(
+            collisions.get("files") or [],
+            key=lambda item: not item.get("binary_sensitive", False),
+        ):
             ordered_paths.append(item["path"])
         for item in governance.get("issues") or []:
             ordered_paths.append(item["path"])

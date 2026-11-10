@@ -1,6 +1,6 @@
 import json
 
-from preflight.reporter import print_json_report, print_report, terminal_safe
+from preflight.reporter import print_compact_report, print_json_report, print_report, terminal_safe
 
 
 def test_terminal_safe_escapes_control_characters():
@@ -145,3 +145,74 @@ def test_print_report_shows_not_configured_governance(capsys):
 
     assert "Ownership policy: not configured" in output
     assert "Evaluation: not evaluated" in output
+
+
+def test_compact_shows_unknown_readiness_without_claiming_attention(capsys):
+    report = _report_with_topology()
+    report["technical_risk"] = "MEDIUM"
+    report["binary_readiness"] = {
+        "count": 1,
+        "attention_count": 0,
+        "files": [
+            {
+                "path": "Content/Maps/Historical.umap",
+                "file_type": "map",
+                "readiness": "unknown",
+                "reason": "analyzed_head_not_current_checkout",
+            }
+        ],
+    }
+    before = json.dumps(report, sort_keys=True)
+    print_compact_report(report)
+    output = capsys.readouterr().out
+    assert "Readiness: 1 unknown (not verified)" in output
+    assert "LFS/readiness attention items" not in output
+    assert len(output.splitlines()) <= 15
+    # Compact presentation must not mutate the JSON/report payload.
+    assert json.dumps(report, sort_keys=True) == before
+
+
+def test_compact_prioritizes_binary_sensitive_overlap_in_three_paths(capsys):
+    report = _report_with_collisions(
+        [
+            {"path": "A.txt", "file_type": "other", "binary_sensitive": False},
+            {"path": "B.txt", "file_type": "other", "binary_sensitive": False},
+            {"path": "C.txt", "file_type": "other", "binary_sensitive": False},
+            {"path": "Content/Main.umap", "file_type": "map", "binary_sensitive": True},
+        ]
+    )
+    before = json.dumps(report, sort_keys=True)
+    print_compact_report(report)
+    output = capsys.readouterr().out
+    paths = output.split("Review paths:\n", 1)[1].split("Details:", 1)[0].splitlines()
+    assert paths[:3] == [
+        "  - Content/Main.umap",
+        "  - A.txt",
+        "  - B.txt",
+    ]
+    assert "  ... 1 more" in output
+    assert "binary-sensitive: 1" in output
+    assert len(output.splitlines()) <= 15
+    assert json.dumps(report, sort_keys=True) == before
+
+
+def test_compact_actual_merge_conflicts_stay_above_binary_overlaps(capsys):
+    report = _report_with_collisions(
+        [
+            {"path": "A.txt", "file_type": "other", "binary_sensitive": False},
+            {"path": "Content/Main.umap", "file_type": "map", "binary_sensitive": True},
+        ]
+    )
+    report["merge_simulation"] = {
+        "status": "CONFLICTS",
+        "conflicted_path_count": 1,
+        "conflicted_paths": ["src/conflict.py"],
+    }
+    print_compact_report(report)
+    output = capsys.readouterr().out
+    paths = output.split("Review paths:\n", 1)[1].split("Details:", 1)[0].splitlines()
+    assert paths[:3] == [
+        "  - src/conflict.py",
+        "  - Content/Main.umap",
+        "  - A.txt",
+    ]
