@@ -1,27 +1,34 @@
 # BranchRift
 
-https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7
-
 > See integration risk before branches come back together.
 
-**BranchRift is a read-only Git CLI that surfaces branch divergence, same-path collisions, binary-sensitive changes, Git LFS readiness, ownership gaps, and review requirements before integration.**
+**BranchRift** is an open-source Git CLI for pre-integration checks: branch divergence, same-path overlaps, Git LFS and Unreal asset readiness, optional merge simulation, and a focused manual-review list. For **trusted Python repositories**, it can optionally run pytest on a temporary merged source snapshot.
 
-Two branches touched the same `.umap`? Know before you integrate.
+**Try a real branch (Python 3.10+; Git 2.38+ for merge simulation):**
+
+```bash
+pipx install branchrift
+branchrift --base main --head feature/my-change --simulate-merge --json
+```
+
+The simulation reports **CLEAN**, **CONFLICTS**, **UNKNOWN**, or **ERROR**, separately from same-path overlaps. For a **trusted** Python repository with installed pytest/dependencies, you can explicitly run:
+
+```bash
+branchrift --base main --head feature/my-change --verify-pytest --json
+```
+
+This adds a separate pytest result (such as **PASS** or **FAIL**) for the temporary merged tree, so **CLEAN + FAIL** can be reported. It does **not** imply every test will run or reproduce a CI environment.
+
+**Safety:** default analysis is advisory and read-only. Merge simulation does not change your original worktree, but custom Git merge drivers may execute programs. `--verify-pytest` **runs repository code with your permissions** and is **not a sandbox**. Never opt into untrusted code. No automatic merge approval or CI gate is provided.
+
+[Short demonstration](https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7) · [Detailed setup](#quick-start) · [Evidence/limits](#experimental-merged-tree-pytest-verification-v040) · [Feedback](#feedback)
 
 [![PyPI](https://img.shields.io/pypi/v/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Python](https://img.shields.io/pypi/pyversions/branchrift.svg)](https://pypi.org/project/branchrift/)
 [![Tests](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml/badge.svg)](https://github.com/kaanbartubozkurt/branchrift/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/kaanbartubozkurt/branchrift.svg)](LICENSE)
 
-By default, BranchRift is advisory and read-only. The experimental
-`--verify-pytest` option deliberately executes test code from the merged
-snapshot with your user permissions. This is NOT a security sandbox.
-
-It does **not** merge, checkout, pull, commit, delete, modify, or approve changes
-in the original repository by itself; opted-in test code can still perform
-arbitrary side effects, so use only trusted repositories.
-
-BranchRift was formerly released as Repo Preflight. The legacy `preflight` command remains available for compatibility.
+Formerly Repo Preflight; the `preflight` CLI alias remains available.
 
 ---
 
@@ -679,7 +686,7 @@ Topology and comparison logic remain commit-based.
 
 ---
 
-## Experimental merged-tree pytest verification (v0.5 prototype)
+## Experimental merged-tree pytest verification (v0.4.0)
 
 For **trusted repositories only**, explicitly request a merged-tree pytest run:
 
@@ -707,7 +714,7 @@ test status. With `--verify-pytest`, `merge_simulation.verification.status` adds
 - `TIMEOUT`: test run exceeded the bounded time budget (currently 300 seconds).
 
 The report includes the base/head SHAs, temporary merge tree OID, test command,
-exit code, duration and bounded stdout/stderr tails. v0.5.2 adds recorded UTC
+exit code, duration and bounded stdout/stderr tails. This release adds recorded UTC
 time, interpreter version/implementation, installed pytest distribution version,
 OS details, and SHA-256 fingerprints of **all output bytes observed** by the
 capture threads (not merely the retained tails). Full stream lengths, truncation
@@ -752,7 +759,7 @@ environment, disables autoloaded third-party plugins, and verifies only tests
 that actually execute. Build verification and arbitrary external commands are
 not part of this feature. No new dependencies are installed.
 
-## Evidence integrity (v0.5.2)
+## Evidence integrity (v0.4.0)
 
 Pytest stdout/stderr SHA-256 digests are computed incrementally over the bytes
 actually read from each stream. A digest plus observed byte count can help detect
@@ -770,7 +777,7 @@ This is still trusted-repository-only execution, **not** a sandbox.
 
 ---
 
-## Merged-source import precedence (v0.5.3)
+## Merged-source import precedence (v0.4.0)
 
 For opt-in merged-tree pytest runs, BranchRift puts the **temporary merged
 checkout's** `src/` directory (when present) ahead of its repository root on
@@ -786,7 +793,7 @@ that every imported dependency/module came from the intended snapshot: custom
 import hooks, unusual layouts and test code may override normal import behavior.
 Only tests actually exercised are covered. For trustworthy project acceptance,
 check test collection, skip reasons, and the applicable dependency environment.
-Previous v0.5.2 `PASS` reports for `src/` layout projects need revalidation.
+Earlier development-build `PASS` reports for `src/` layout projects need revalidation.
 
 ---
 
