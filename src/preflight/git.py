@@ -242,6 +242,8 @@ def get_unified_diff(base_branch, head_revision="HEAD", cwd=None):
     return run_git(
         [
             "diff",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
             "--unified=0",
             "--find-renames",
             "--no-ext-diff",
