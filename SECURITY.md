@@ -6,7 +6,7 @@ Only the latest published BranchRift version receives security fixes. Earlier re
 
 ## Execution and trust boundaries
 
-BranchRift's default analysis is advisory and intended to inspect Git repository state without modifying the analyzed repository. It does not run project tests, install dependencies, merge branches, or approve integrations by default.
+BranchRift's default analysis is advisory and does not intentionally modify the analyzed repository's project files. It does not run project tests, install dependencies, merge branches, or approve integrations by default. However, default analysis runs Git commands including `git status`, which can invoke executable clean filters already configured in local or global Git settings for matching paths. Such filters may have side effects, including writes outside the repository. A tracked `.gitattributes` file alone does not define an executable filter, but it can select one that is already configured. Thus, "read-only" does **not** promise that Git or configured subprocesses execute no commands or have no side effects. Inspect only trusted repositories and Git configurations; a temporary directory is not a sandbox.
 
 Two opt-in features have different security implications:
 
