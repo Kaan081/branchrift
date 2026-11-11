@@ -527,3 +527,64 @@ def test_cli_attribute_drift_does_not_inherit_later_lfs_rule(tmp_path):
     assert item["lfs_state"] == "unknown"
     assert item["readiness"] == "unknown"
     assert item["reason"] == "analyzed_head_not_current_checkout"
+
+
+def test_dirty_lfs_path_never_claims_hydrated_for_empty_or_conflicted_content(tmp_path):
+    """Audit regression: readable, non-pointer bytes are not proof of hydration."""
+    path = "Content/Maps/Damaged.umap"
+    for data in (b"", b"<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n"):
+        _write(tmp_path, path, data)
+        result = build_binary_readiness_report(
+            [_change(path, "map")],
+            cwd=tmp_path,
+            worktree_status=f" M {path}\0",
+            analyzed_head_sha="a" * 40,
+            current_head_sha="a" * 40,
+            attr_values={path: "lfs"},
+            lfs_names={path},
+        )
+        item = result["files"][0]
+        assert item["working_tree_state"] == "modified"
+        assert item["lfs_state"] == "unknown"
+        assert item["readiness"] == "attention"
+        assert "not verified" in item["reason"]
+        assert result["attention_count"] == 1
+
+
+def test_unmerged_lfs_path_cannot_be_ready(tmp_path):
+    path = "Content/Maps/Unmerged.umap"
+    _write(tmp_path, path, b"not a pointer\0")
+    for xy in ("UU", "AA", "DD", "AU", "UD", "UA", "DU"):
+        result = build_binary_readiness_report(
+            [_change(path, "map")],
+            cwd=tmp_path,
+            worktree_status=f"{xy} {path}\0",
+            analyzed_head_sha="a" * 40,
+            current_head_sha="a" * 40,
+            attr_values={path: "lfs"},
+            lfs_names={path},
+        )
+        item = result["files"][0]
+        assert item["working_tree_state"] == "unmerged"
+        assert item["lfs_state"] == "unknown"
+        assert item["readiness"] == "attention"
+        assert result["attention_count"] == 1
+
+
+def test_clean_lfs_path_still_reports_hydrated(tmp_path):
+    path = "Content/Maps/Clean.umap"
+    _write(tmp_path, path, b"\0nonpointer-binary-data\0")
+    result = build_binary_readiness_report(
+        [_change(path, "map")],
+        cwd=tmp_path,
+        worktree_status="",
+        analyzed_head_sha="a" * 40,
+        current_head_sha="a" * 40,
+        attr_values={path: "lfs"},
+        lfs_names={path},
+    )
+    item = result["files"][0]
+    assert item["working_tree_state"] == "present"
+    assert item["lfs_state"] == "hydrated"
+    assert item["readiness"] == "ready"
+    assert result["attention_count"] == 0

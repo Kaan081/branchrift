@@ -191,6 +191,18 @@ def classify_binary_readiness(
         working_tree_state = "modified"
 
     if lfs_managed is True:
+        # Git's porcelain status is relative to the analyzed checkout. A dirty
+        # LFS path might be empty, corrupted, or still have merge markers. A
+        # readable non-pointer is not enough to prove it is hydrated correctly.
+        if porcelain_xy:
+            unmerged = porcelain_xy in ("DD", "AU", "UD", "UA", "DU", "AA", "UU")
+            return {
+                "lfs_managed": True,
+                "working_tree_state": "unmerged" if unmerged else "modified",
+                "lfs_state": "unknown",
+                "readiness": "attention",
+                "reason": "LFS worktree path has uncommitted changes or conflicts; hydration not verified",
+            }
         return {
             "lfs_managed": True,
             "working_tree_state": working_tree_state,
