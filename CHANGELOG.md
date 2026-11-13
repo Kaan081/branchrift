@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.2
+
+### Fixed
+
+- Do not claim LFS `hydrated / ready` for dirty or unmerged tracked LFS working-tree paths; report `attention / unknown` conservatively (#21). Clean hydrated paths retain the previous classification.
+
+- Preserve literal Unicode in mixed Git C-quoted diff paths, including escaped tabs and octal UTF-8 bytes (#23).
+- Classify common dependency/build manifests (`pyproject.toml`, `package.json`, `Cargo.toml`, `requirements.txt`) as `build_config` under default rules (#24).
+
+### Documentation
+
+- Clarify that configured Git clean filters can execute during default `git status` analysis. "Read-only" does not guarantee zero external subprocess side effects.
+- Explain that `--verify-pytest` uses BranchRift's own interpreter: `pipx` installs can lack the project's pytest/dependencies. Recommend running BranchRift inside the prepared project Python environment for verification.
+
+### Compatibility and limitations
+
+- No intentional CLI or JSON schema changes. Readiness classification changes only for dirty/unmerged LFS worktree paths.
+- LFS readiness is not Unreal binary-validity verification; semantic integration failure detection and paid adoption are not established.
+
 ## 0.4.1
 
 ### Fixed

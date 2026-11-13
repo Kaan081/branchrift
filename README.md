@@ -11,15 +11,17 @@ pipx install branchrift
 branchrift --base main --head feature/my-change --simulate-merge --json
 ```
 
-The simulation reports **CLEAN**, **CONFLICTS**, **UNKNOWN**, or **ERROR**, separately from same-path overlaps. For a **trusted** Python repository with installed pytest/dependencies, you can explicitly run:
+The simulation reports **CLEAN**, **CONFLICTS**, **UNKNOWN**, or **ERROR**, separately from same-path overlaps. For a **trusted** Python repository, `--verify-pytest` uses the Python interpreter that launches BranchRift. If you installed BranchRift with `pipx`, that interpreter is isolated from your project's pytest and dependencies; use your project's prepared Python environment instead:
 
 ```bash
-branchrift --base main --head feature/my-change --verify-pytest --json
+# Inside the project's activated Python environment, with project dependencies installed:
+python -m pip install branchrift pytest
+python -m preflight --base main --head feature/my-change --verify-pytest --json
 ```
 
 This adds a separate pytest result (such as **PASS** or **FAIL**) for the temporary merged tree, so **CLEAN + FAIL** can be reported. It does **not** imply every test will run or reproduce a CI environment.
 
-**Safety:** default analysis is advisory and read-only. Merge simulation does not change your original worktree, but custom Git merge drivers may execute programs. `--verify-pytest` **runs repository code with your permissions** and is **not a sandbox**. Never opt into untrusted code. No automatic merge approval or CI gate is provided.
+**Safety:** default analysis does not intentionally modify project files, but Git commands such as `git status` can invoke executable clean filters already configured for matching paths; "read-only" is **not** a guarantee of zero subprocess side effects. Merge simulation can also invoke custom Git merge drivers. `--verify-pytest` **runs repository code with your permissions** and is **not a sandbox**. Only inspect trusted repositories and Git configurations; never opt into running tests on untrusted code. No automatic merge approval or CI gate is provided.
 
 [Short demonstration](https://github.com/user-attachments/assets/2c032aa3-86f6-44b4-a3fc-86d83c5ecdc7) · [Detailed setup](#quick-start) · [Evidence/limits](#experimental-merged-tree-pytest-verification-v040) · [Feedback](#feedback)
 
@@ -67,11 +69,13 @@ BranchRift surfaces that overlap before integration without pretending it can se
 
 ## Quick start
 
-Install with `pipx`:
+For advisory Git analysis, `pipx` provides a convenient isolated CLI installation:
 
 ```bash
 pipx install branchrift
 ```
+
+For `--verify-pytest`, install and run BranchRift **inside the target project's prepared Python environment** alongside pytest and its project dependencies. The `pipx` interpreter does not automatically inherit them; missing pytest may yield `CLEAN + NOT_RUN`, not a successful test run.
 
 Or:
 
@@ -696,6 +700,12 @@ branchrift --base main --head feature/my-change --verify-pytest --json
 ```
 
 `--verify-pytest` implies `--simulate-merge` and does **not** run by default.
+It uses BranchRift's own `sys.executable`, not the project's separately installed
+interpreter. In an isolated `pipx` environment without pytest, the result can be
+`CLEAN + NOT_RUN` (rather than `PASS`). For verification, activate the target
+project's environment, install `branchrift` and `pytest` there, and invoke
+`python -m preflight --base main --head feature/my-change --verify-pytest --json`.
+Install the project's own test dependencies first; BranchRift does not install them.
 If Git reports `CLEAN`, BranchRift reconstructs the merged Git tree in a temporary
 folder using a temporary index and object store, runs the active Python
 interpreter's `python -m pytest -q -p no:cacheprovider` there, and removes the
