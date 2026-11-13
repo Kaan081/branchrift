@@ -45,27 +45,27 @@ def _strip_a_or_b_prefix(path):
 
 
 def _unquote_git_path(text):
-    """Decode one Git C-quoted path, including its surrounding quotes."""
+    """Decode Git C-quoted path: escaped octals are bytes; raw Unicode is UTF-8."""
     if len(text) < 2 or not text.startswith('"'):
         return text
 
-    body = []
+    data = bytearray()
     index = 1
     while index < len(text):
         char = text[index]
         if char == '"':
             break
         if char != "\\":
-            body.append(char)
+            data.extend(char.encode("utf-8"))
             index += 1
             continue
         if index + 1 >= len(text):
-            body.append("\\")
+            data.extend(b"\\")
             break
         nxt = text[index + 1]
         octal = text[index + 1 : index + 4]
         if len(octal) == 3 and all(digit in "01234567" for digit in octal):
-            body.append(chr(int(octal, 8)))
+            data.append(int(octal, 8))
             index += 4
             continue
         simple = {
@@ -79,11 +79,12 @@ def _unquote_git_path(text):
             "r": "\r",
             "v": "\v",
         }
-        body.append(simple.get(nxt, nxt))
+        data.extend(simple.get(nxt, nxt).encode("utf-8"))
         index += 2
 
-    # Octal escapes are raw bytes. UTF-8 paths decode; other bytes are replaced.
-    return "".join(body).encode("latin-1", errors="replace").decode("utf-8", errors="replace")
+    # Git octal escapes represent bytes, whereas unescaped characters are
+    # already Unicode because the Git subprocess decoded stdout as UTF-8.
+    return data.decode("utf-8", errors="replace")
 
 
 def _parse_diff_path(raw):

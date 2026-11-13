@@ -1,3 +1,4 @@
+import pytest
 from preflight.classifier import classify_file
 from preflight.config import DEFAULT_FILE_TYPES
 
@@ -41,3 +42,33 @@ def test_path_prefix_normalizes_windows_separators():
     }
 
     assert classify_file("src/security/policy.xyz", file_types) == "special"
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        "pyproject.toml",
+        "package.json",
+        "Cargo.toml",
+        "requirements.txt",
+        "services/api/pyproject.toml",
+        "web/package.json",
+        "crates/lib/Cargo.toml",
+        "python/requirements.txt",
+    ],
+)
+def test_common_dependency_manifests_are_build_config(manifest):
+    # Default classification must not down-rank dependency/build edits to LOW.
+    from preflight.analyzer import calculate_required_checks, calculate_technical_risk
+
+    assert classify_file(manifest, DEFAULT_FILE_TYPES) == "build_config"
+    change = {"git_status": "M", "file_type": "build_config"}
+    assert calculate_technical_risk(change) == "MEDIUM"
+    assert "build/config verification" in calculate_required_checks(change)
+
+
+def test_custom_file_types_still_replace_defaults_for_manifests():
+    custom_types = {
+        "my_source": {"names": [], "path_prefixes": [], "extensions": [".py"]},
+    }
+    assert classify_file("pyproject.toml", custom_types) == "other"
