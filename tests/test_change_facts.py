@@ -454,3 +454,38 @@ def test_unified_diff_paths_ignore_user_prefix_config(tmp_path):
                 ],
             }
         ]
+
+
+
+def test_mixed_unicode_git_path_decoding():
+    """Literal UTF-8 characters must survive Git's C quoting and escapes."""
+    from preflight.change_facts import _unquote_git_path
+
+    assert _unquote_git_path(r'"a/café\tfile.py"') == "a/café\tfile.py"
+    assert _unquote_git_path(r'"a/caf\303\251\tfile.py"') == "a/café\tfile.py"
+    assert _unquote_git_path(r'"a/日本語\tfile.py"') == "a/日本語\tfile.py"
+
+
+def test_change_facts_unquotes_unicode_headers():
+    """The real path, not a replacement-character variant, owns the facts."""
+    diff = (
+        r'diff --git "a/café\tfile.py" "b/café\tfile.py"' + "\n"
+        + r'--- "a/café\tfile.py"' + "\n"
+        + r'+++ "b/café\tfile.py"' + "\n"
+        + "@@ -1 +1 @@\n-count = 1\n+count = 2\n"
+    )
+    report = build_change_facts_report(diff, {"café\tfile.py": "source"})
+    assert report["count"] == 1
+    assert report["files"] == [
+        {
+            "path": "café\tfile.py",
+            "facts": [{
+                "kind": "value_changed",
+                "key": "count",
+                "before": "1",
+                "after": "2",
+                "old_line": 1,
+                "new_line": 1,
+            }],
+        }
+    ]
