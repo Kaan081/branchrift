@@ -37,7 +37,10 @@ DEFAULT_FILE_TYPES = {
         "extensions": [".umap"],
     },
     "build_config": {
-        "names": ["Dockerfile", "Makefile", "CMakeLists.txt", "Jenkinsfile", "Procfile"],
+        "names": [
+            "Dockerfile", "Makefile", "CMakeLists.txt", "Jenkinsfile", "Procfile",
+            "pyproject.toml", "package.json", "Cargo.toml", "requirements.txt",
+        ],
         "path_prefixes": [".github/workflows/"],
         "extensions": [".gradle"],
     },
